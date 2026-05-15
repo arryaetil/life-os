@@ -11,3 +11,4 @@ ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
 WEEKLY_BUDGET: float = float(os.environ.get("WEEKLY_BUDGET", "90"))
 WEBHOOK_BASE_URL: str = os.environ.get("WEBHOOK_BASE_URL", "")
 LOCAL_POLLING: bool = os.environ.get("LOCAL_POLLING", "false").lower() == "true"
+TELEGRAM_OWNER_CHAT_ID: str = os.environ.get("TELEGRAM_OWNER_CHAT_ID", "")
