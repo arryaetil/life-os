@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 
     if not config.LOCAL_POLLING and config.WEBHOOK_BASE_URL:
         await _ptb_app.bot.set_webhook(
-            url=f"{config.WEBHOOK_BASE_URL}/webhook",
+            url=f"{config.WEBHOOK_BASE_URL.rstrip('/')}/webhook",
             secret_token=config.TELEGRAM_WEBHOOK_SECRET,
         )
 
