@@ -33,6 +33,7 @@ _AI_PROMPT = (
 
 
 def _parse_amount(raw: str) -> float:
+    """Convert amount string to float. Handles 'k' suffix (2k → 2000) and comma decimals."""
     raw = raw.strip().lower()
     if raw.endswith("k"):
         return float(raw[:-1].replace(",", ".")) * 1000.0
@@ -95,7 +96,7 @@ def parse_net_worth_message(text: str) -> dict:
     Returns: {cash, investments, crypto, savings, other_assets, liabilities}
     All values are floats. Missing fields default to 0.0.
     """
-    _fields = ["cash", "investments", "crypto", "savings", "other_assets", "liabilities"]
+    _fields = [f for f, _ in _FIELD_PATTERNS]
     ai = _ai_parse(text)
     if ai and any(float(ai.get(f, 0)) > 0 for f in _fields):
         return {f: float(ai.get(f, 0.0)) for f in _fields}

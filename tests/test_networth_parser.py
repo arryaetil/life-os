@@ -53,12 +53,9 @@ def test_parses_debt_as_liabilities():
 
 def test_parses_total_only():
     result = parse_net_worth_message("net worth 15k total")
-    # Total stored in other_assets when no categories found
-    total = (
-        result["cash"] + result["investments"] + result["crypto"]
-        + result["savings"] + result["other_assets"] - result["liabilities"]
-    )
-    assert total == pytest.approx(15000.0)
+    assert result["other_assets"] == pytest.approx(15000.0)
+    assert result["cash"] == pytest.approx(0.0)
+    assert result["liabilities"] == pytest.approx(0.0)
 
 def test_missing_fields_default_to_zero():
     result = parse_net_worth_message("net worth cash 3000")
