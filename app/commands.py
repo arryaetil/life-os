@@ -6,12 +6,17 @@ from app import database as sheets, budget as budget_module, config
 from app.parser import parse_message
 from app.categories import get_category
 from app.utils import format_currency
+from app.networth_parser import is_net_worth_message, parse_net_worth_message
+from app.networth import GOALS, calculate_goal_progress, ascii_progress_bar
 
 _log = logging.getLogger(__name__)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
+    if is_net_worth_message(text):
+        await _handle_net_worth_message(update, context, text)
+        return
     try:
         parsed = parse_message(text)
     except ValueError:
@@ -248,4 +253,100 @@ async def cmd_handoff(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if state.get("next_task"):
         lines.append(f"Next: {state['next_task']}")
     lines.append("Read handoff/latest.md for full startup prompt.")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def _handle_net_worth_message(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    from app import database
+    fields = parse_net_worth_message(text)
+    total = (
+        fields.get("cash", 0.0) + fields.get("investments", 0.0)
+        + fields.get("crypto", 0.0) + fields.get("savings", 0.0)
+        + fields.get("other_assets", 0.0) - fields.get("liabilities", 0.0)
+    )
+    if total == 0.0 and all(v == 0.0 for v in fields.values()):
+        await update.message.reply_text(
+            "Couldn't parse net worth. Try:\n"
+            "  net worth cash 2000 investments 5000\n"
+            "  net worth cash 2k savings 3k crypto 500"
+        )
+        return
+    database.create_net_worth_snapshot(fields)
+    lines = ["✅ Net worth saved!\n"]
+    for label, key in [("Cash", "cash"), ("Investments", "investments"),
+                       ("Crypto", "crypto"), ("Savings", "savings"),
+                       ("Other", "other_assets"), ("Liabilities", "liabilities")]:
+        val = fields.get(key, 0.0)
+        if val > 0:
+            lines.append(f"  {label}: {format_currency(val)}")
+    lines.append(f"\nTotal: {format_currency(total)}")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_networth(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    snap = database.get_latest_net_worth_snapshot()
+    if not snap:
+        await update.message.reply_text(
+            "No net worth data yet.\n\n"
+            "Log your first snapshot:\n"
+            "  net worth cash 2000 investments 5000 savings 3000"
+        )
+        return
+    date_str = (snap.get("timestamp") or "")[:10]
+    lines = [f"💰 Net Worth — {date_str}\n"]
+    for label, key in [("Cash", "cash"), ("Investments", "investments"),
+                       ("Crypto", "crypto"), ("Savings", "savings"),
+                       ("Other Assets", "other_assets"), ("Liabilities", "liabilities")]:
+        val = snap.get(key, 0.0)
+        if val > 0:
+            lines.append(f"{label}: {format_currency(val)}")
+    lines.append(f"\nTotal: {format_currency(snap['total_net_worth'])}")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_networth_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    history = database.get_net_worth_history(limit=5)
+    if not history:
+        await update.message.reply_text(
+            "No net worth history yet.\n"
+            "Send: net worth cash 2000 investments 5000"
+        )
+        return
+    lines = ["📈 Net Worth History\n"]
+    for i, snap in enumerate(history):
+        date_str = (snap.get("timestamp") or "")[:10]
+        total = snap["total_net_worth"]
+        if i == 0:
+            lines.append(f"{date_str}: {format_currency(total)}")
+        else:
+            prev = history[i - 1]["total_net_worth"]
+            delta = total - prev
+            sign = "+" if delta >= 0 else ""
+            lines.append(f"{date_str}: {format_currency(total)} ({sign}{format_currency(delta)})")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_goal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    snap = database.get_latest_net_worth_snapshot()
+    if not snap:
+        await update.message.reply_text(
+            "No net worth data yet. Log a snapshot first:\n"
+            "  net worth cash 2000 investments 5000"
+        )
+        return
+    current = snap["total_net_worth"]
+    lines = ["🎯 Financial Goals\n"]
+    for goal in GOALS:
+        progress = calculate_goal_progress(current, goal["target"])
+        bar = ascii_progress_bar(progress["pct"])
+        if progress["achieved"]:
+            lines.append(f"{goal['label']}: {bar} ✅ Achieved!")
+        else:
+            lines.append(
+                f"{goal['label']}: {bar} {progress['pct']}%\n"
+                f"  {format_currency(progress['remaining'])} to go"
+            )
     await update.message.reply_text("\n".join(lines))
