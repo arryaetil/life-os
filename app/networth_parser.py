@@ -40,13 +40,18 @@ def _parse_amount(raw: str) -> float:
     return float(raw.replace(",", "."))
 
 
+_KW_WITH_AMOUNT = re.compile(
+    r"\b(?:" + "|".join(sorted(_NW_KEYWORDS, key=len, reverse=True)) + r")\s+\d",
+    re.IGNORECASE,
+)
+
+
 def is_net_worth_message(text: str) -> bool:
     lower = text.lower()
     for trigger in _NW_TRIGGERS:
         if trigger in lower:
             return True
-    found = sum(1 for kw in _NW_KEYWORDS if re.search(r"\b" + kw + r"\b", lower))
-    return found >= 2
+    return len(_KW_WITH_AMOUNT.findall(lower)) >= 2
 
 
 def _regex_parse(text: str) -> dict:

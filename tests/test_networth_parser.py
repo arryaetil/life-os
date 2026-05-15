@@ -28,6 +28,13 @@ def test_rejects_regular_transaction():
 def test_rejects_single_nw_keyword_no_trigger():
     assert is_net_worth_message("50 savings account transfer") is False
 
+def test_rejects_transaction_with_investments_and_crypto_keywords_but_no_amounts():
+    # "100 degiro investments stocks crypto" — two NW keywords but neither followed by amount
+    assert is_net_worth_message("100 degiro investments stocks crypto") is False
+
+def test_rejects_transaction_with_crypto_and_debt_keywords_but_no_amounts():
+    assert is_net_worth_message("200 crypto buy debt") is False
+
 
 # --- parse_net_worth_message (regex path, no AI key) ---
 
