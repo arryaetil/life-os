@@ -97,3 +97,27 @@ def test_webhook_accepts_correct_secret():
                     headers={"X-Telegram-Bot-Api-Secret-Token": "correct-secret"},
                 )
     assert response.status_code == 200
+
+def test_networth_page_returns_200(client):
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
+         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=None):
+        response = client.get("/networth")
+    assert response.status_code == 200
+
+def test_networth_page_empty_state(client):
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
+         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=None):
+        response = client.get("/networth")
+    assert "No Net Worth" in response.text or "No net worth" in response.text
+
+def test_networth_page_shows_total_when_data(client):
+    snap = {
+        "id": 1, "timestamp": "2026-05-15T10:00:00+00:00",
+        "cash": 2000.0, "investments": 8000.0, "crypto": 0.0,
+        "savings": 3000.0, "other_assets": 0.0, "liabilities": 0.0,
+        "total_net_worth": 13000.0, "notes": "",
+    }
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[snap]), \
+         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=snap):
+        response = client.get("/networth")
+    assert "13000.00" in response.text

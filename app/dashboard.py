@@ -7,6 +7,7 @@ from app import config, database as sheets
 from app import budget as budget_module
 from app.bot import create_ptb_app
 from app.utils import format_currency, budget_color
+from app import networth as nw_module
 
 _ptb_app = None
 
@@ -80,4 +81,43 @@ async def transactions_page(request: Request):
     return templates.TemplateResponse(request, "transactions.html", {
         "active_page": "transactions",
         "transactions": list(reversed(transactions)),
+    })
+
+@app.get("/networth")
+async def networth_page(request: Request):
+    latest = sheets.get_latest_net_worth_snapshot()
+    history = sheets.get_net_worth_history(limit=30)
+    change = nw_module.calculate_change(history)
+    goals = [
+        {**g, **nw_module.calculate_goal_progress(
+            latest["total_net_worth"] if latest else 0.0, g["target"]
+        )}
+        for g in nw_module.GOALS
+    ]
+    allocation = []
+    max_asset = 1.0
+    if latest:
+        raw = [
+            {"label": "Cash",         "amount": latest["cash"],         "color": ""},
+            {"label": "Investments",  "amount": latest["investments"],   "color": ""},
+            {"label": "Crypto",       "amount": latest["crypto"],        "color": ""},
+            {"label": "Savings",      "amount": latest["savings"],       "color": ""},
+            {"label": "Other Assets", "amount": latest["other_assets"],  "color": ""},
+            {"label": "Liabilities",  "amount": latest["liabilities"],   "color": "danger"},
+        ]
+        allocation = [a for a in raw if a["amount"] > 0]
+        pos_amounts = [a["amount"] for a in allocation]
+        max_asset = max(pos_amounts) if pos_amounts else 1.0
+    chart_labels = [s["timestamp"][:10] for s in history]
+    chart_values = [s["total_net_worth"] for s in history]
+    return templates.TemplateResponse(request, "networth.html", {
+        "active_page": "networth",
+        "latest": latest,
+        "history": history,
+        "change": change,
+        "goals": goals,
+        "allocation": allocation,
+        "max_asset": max_asset,
+        "chart_labels": chart_labels,
+        "chart_values": chart_values,
     })

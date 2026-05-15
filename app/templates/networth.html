@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="kpi-grid">
+
+  <div class="glass-card">
+    <div class="kpi-label">Net Worth</div>
+    {% if latest %}
+    <div class="kpi-value {% if latest.total_net_worth >= 0 %}positive{% else %}danger{% endif %}">
+      {{ latest.total_net_worth | format_currency }}
+    </div>
+    <div class="kpi-sub">as of {{ latest.timestamp[:10] }}</div>
+    {% else %}
+    <div class="kpi-value" style="color: var(--text-secondary);">—</div>
+    <div class="kpi-sub">No data yet</div>
+    {% endif %}
+  </div>
+
+  <div class="glass-card">
+    <div class="kpi-label">Change</div>
+    {% if change %}
+    <div class="kpi-value {% if change.delta >= 0 %}positive{% else %}danger{% endif %}">
+      {% if change.delta >= 0 %}+{% endif %}{{ change.delta | format_currency }}
+    </div>
+    <div class="kpi-sub">since last snapshot</div>
+    {% else %}
+    <div class="kpi-value" style="color: var(--text-secondary);">—</div>
+    <div class="kpi-sub">Need 2+ snapshots</div>
+    {% endif %}
+  </div>
+
+  {% for goal in goals %}
+  <div class="glass-card">
+    <div class="kpi-label">Goal {{ goal.label }}</div>
+    <div class="kpi-value {% if goal.achieved %}positive{% else %}accent{% endif %}">
+      {{ goal.pct }}%
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill {% if goal.achieved %}positive{% endif %}"
+           style="width: {{ goal.pct }}%"></div>
+    </div>
+    <div class="kpi-sub">
+      {% if goal.achieved %}
+        🎉 Achieved!
+      {% else %}
+        {{ goal.remaining | format_currency }} to go
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+{% if latest %}
+
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div class="section-header">Asset Allocation</div>
+  {% if allocation %}
+    {% for a in allocation %}
+    <div class="cat-row">
+      <div class="cat-name">{{ a.label }}</div>
+      <div class="cat-track">
+        <div class="cat-fill {% if a.color == 'danger' %}danger-fill{% endif %}"
+             style="width: {{ (a.amount / max_asset * 100) | round(1) }}%"></div>
+      </div>
+      <div class="cat-amount {% if a.color == 'danger' %}danger{% endif %}">
+        {{ a.amount | format_currency }}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color: var(--text-secondary); font-size: 14px;">No asset breakdown available.</p>
+  {% endif %}
+</div>
+
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div class="section-header">Net Worth Over Time</div>
+  {% if history | length >= 2 %}
+  <div style="position: relative; height: 240px;">
+    <canvas id="nwChart"></canvas>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    (function() {
+      const ctx = document.getElementById('nwChart');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: {{ chart_labels | tojson }},
+          datasets: [{
+            label: 'Net Worth',
+            data: {{ chart_values | tojson }},
+            borderColor: '#3F5AF5',
+            backgroundColor: 'rgba(63,90,245,0.08)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#3F5AF5',
+            pointBorderColor: '#3F5AF5',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(8,12,20,0.9)',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              callbacks: {
+                label: function(ctx) { return '€' + ctx.parsed.y.toFixed(2); }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: 'rgba(255,255,255,0.45)', font: { size: 11 } },
+              grid:  { color: 'rgba(255,255,255,0.05)' }
+            },
+            y: {
+              ticks: {
+                color: 'rgba(255,255,255,0.45)',
+                font: { size: 11 },
+                callback: function(v) { return '€' + v.toLocaleString(); }
+              },
+              grid: { color: 'rgba(255,255,255,0.05)' }
+            }
+          }
+        }
+      });
+    })();
+  </script>
+  {% else %}
+  <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.7;">
+    Log more snapshots to see your net worth trend.<br>
+    Send via Telegram: <code style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;">net worth cash 2000 investments 5000</code>
+  </p>
+  {% endif %}
+</div>
+
+<div class="glass-card">
+  <div class="section-header">Recent Snapshots</div>
+  <table class="glass-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Net Worth</th>
+        <th>Cash</th>
+        <th>Investments</th>
+        <th>Savings</th>
+        <th>Liabilities</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in history | reverse %}
+      <tr>
+        <td>{{ s.timestamp[:10] }}</td>
+        <td><strong>{{ s.total_net_worth | format_currency }}</strong></td>
+        <td>{{ s.cash | format_currency }}</td>
+        <td>{{ s.investments | format_currency }}</td>
+        <td>{{ s.savings | format_currency }}</td>
+        <td>{{ s.liabilities | format_currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+
+<div class="glass-card">
+  <div class="section-header">No Net Worth Data Yet</div>
+  <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.9;">
+    Log your first snapshot via Telegram:<br><br>
+    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth cash 2000 investments 5000 savings 3000</code><br>
+    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth cash 2k savings 5k investments 10k</code><br><br>
+    Or send <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">/networth</code> to the bot.
+  </p>
+</div>
+
+{% endif %}
+
+{% endblock %}

@@ -14,6 +14,7 @@
     <a href="/" class="{{ 'active' if active_page == 'home' else '' }}">Dashboard</a>
     <a href="/categories" class="{{ 'active' if active_page == 'categories' else '' }}">Categories</a>
     <a href="/transactions" class="{{ 'active' if active_page == 'transactions' else '' }}">Transactions</a>
+    <a href="/networth" class="{{ 'active' if active_page == 'networth' else '' }}">Net Worth</a>
   </nav>
   <div class="container">
     {% block content %}{% endblock %}

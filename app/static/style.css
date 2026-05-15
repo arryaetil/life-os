@@ -226,3 +226,8 @@ nav a.active { color: var(--text-primary); background: rgba(63,90,245,0.18); }
   .glass-card { padding: 16px; }
   .glass-table th, .glass-table td { padding: 10px; font-size: 13px; }
 }
+
+/* ── Net Worth additions ── */
+.progress-fill.positive { background: var(--success); }
+.cat-fill.danger-fill   { background: var(--danger); }
+.danger                 { color: var(--danger); }
