@@ -85,9 +85,21 @@ Nothing built. See `docs/roadmap.md` for spec.
 
 ## Module 1.4 — Agent Control Layer + Notifications
 
-**Status: 🔲 NOT STARTED**
+**Status: 🔶 IN PROGRESS**
 
-Nothing built. See `docs/roadmap.md` for spec.
+### What Works
+- `app/telegram.py` — `send_telegram_message(text) -> bool` reusable utility
+- `scripts/notify_me.py` — typed notification CLI (progress/decision/action/error/complete/handoff)
+- `scripts/create_handoff.py` — comprehensive handoff generator
+- `scripts/handoff_notify.py` — basic handoff (legacy, preserved)
+- `agent_state` PostgreSQL table — live state written by scripts, read by bot
+- Bot commands: `/status`, `/next`, `/git`, `/handoff` — read from PostgreSQL, work from Railway
+- `handoff/start_next_session_prompt.md` — static startup prompt for next session
+
+### What's Left (for future sessions)
+- Inbound command authentication (only respond to TELEGRAM_OWNER_CHAT_ID)
+- `/resolve` command to mark decisions/actions as resolved
+- Proactive notifications (e.g., daily summary)
 
 ---
 

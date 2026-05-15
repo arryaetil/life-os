@@ -122,6 +122,46 @@ This writes `handoff/latest.md` with current git state and a startup prompt for 
 
 Requires `TELEGRAM_OWNER_CHAT_ID` in your `.env`. Find your chat ID by messaging `@userinfobot` on Telegram.
 
+## Autonomous Claude Workflow
+
+Claude Code can work autonomously on this repo while you supervise from Telegram.
+
+### How it works
+
+1. Start Claude Code with full repo access (`bypassPermissions` mode set in `.claude/settings.local.json`)
+2. Claude works on tasks, using `scripts/notify_me.py` to push updates
+3. You receive Telegram notifications and reply when decisions are needed
+4. When Claude's session ends, it runs `scripts/create_handoff.py`
+5. You receive a handoff notification, switch Claude accounts, and paste the startup prompt
+
+### Supervision commands (send from Telegram)
+
+| Command | What it shows |
+|---------|--------------|
+| `/status` | Current module, task, progress, blockers |
+| `/next` | Recommended next task |
+| `/git` | Recent commits summary |
+| `/handoff` | Last session handoff info |
+
+### Notification types Claude sends
+
+| Script | When |
+|--------|------|
+| `notify_me.py progress "..."` | Task started or milestone hit |
+| `notify_me.py decision "..." "A:..." "B:..."` | Choice needed from you |
+| `notify_me.py action "..."` | Manual step needed (Railway, etc.) |
+| `notify_me.py error "..."` | Test failure or blocker |
+| `notify_me.py complete "..."` | Module or task finished |
+| `create_handoff.py` | Session ending, switch accounts |
+
+### Switching accounts
+
+When you get a handoff notification:
+1. `claude logout`
+2. `claude login` (new account)
+3. Open this repo
+4. Paste the contents of `handoff/start_next_session_prompt.md` as your first message
+
 ## Architecture
 
 ```

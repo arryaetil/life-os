@@ -45,6 +45,31 @@ If any of these files is missing or stale (last updated >2 sessions ago), regene
 
 ---
 
+## Autonomous Workflow Rules
+
+### Notify via Telegram
+Run `python scripts/notify_me.py <type> "<message>"` whenever:
+- A decision is needed from the user → `notify_me.py decision "..." "A:..." "B:..."`
+- Manual setup is required (Railway env vars, etc.) → `notify_me.py action "..."`
+- Deployment approval is needed → `notify_me.py action "..."`
+- Tests fail unexpectedly → `notify_me.py error "..."`
+- A module or task completes → `notify_me.py complete "..."`
+- A blocker occurs → `notify_me.py error "Blocked: ..."`
+- Session/context/token limit is nearing → run `create_handoff.py` immediately
+
+### Create Handoff Before Stopping
+Always run `python scripts/create_handoff.py` before ending a session or when tokens are running low. This writes `handoff/latest.md`, updates `handoff/start_next_session_prompt.md`, writes state to PostgreSQL, and sends a Telegram notification.
+
+### Never
+- Read, print, or commit `.env` content or secrets via any tool or notification
+- Delete files without explicit user approval
+- Modify the `transactions` table schema
+- Rebuild a module marked DONE in `docs/current-status.md`
+- Access files outside the repo root
+- Skip tests before committing a completed feature
+
+---
+
 ## Handoff Template
 
 When ending a session, write `handoff/latest.md` with exactly this structure:
