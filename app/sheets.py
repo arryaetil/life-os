@@ -1,9 +1,7 @@
 import json
 import gspread
-from google.oauth2.service_account import Credentials
 from app import config
 
-_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _SHEET_NAME = "Transactions"
 _HEADERS = [
     "ID", "Timestamp", "Date", "Week_Start", "Month",
@@ -12,9 +10,11 @@ _HEADERS = [
 ]
 
 def _get_sheet() -> gspread.Worksheet:
-    creds_dict = json.loads(config.GOOGLE_SERVICE_ACCOUNT_JSON)
-    creds = Credentials.from_service_account_info(creds_dict, scopes=_SCOPES)
-    client = gspread.authorize(creds)
+    try:
+        creds_dict = json.loads(config.GOOGLE_SERVICE_ACCOUNT_JSON)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing or not valid JSON") from exc
+    client = gspread.service_account_from_dict(creds_dict)
     spreadsheet = client.open_by_key(config.GOOGLE_SHEET_ID)
     try:
         return spreadsheet.worksheet(_SHEET_NAME)
