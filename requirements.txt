@@ -1,8 +1,8 @@
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 python-telegram-bot==20.7
-gspread==6.1.2
-google-auth==2.29.0
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.12
 Jinja2==3.1.4
 python-dotenv==1.0.1
 openai==1.30.1

@@ -3,7 +3,7 @@ from telegram import Update
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from app import config, sheets
+from app import config, database as sheets
 from app import budget as budget_module
 from app.bot import create_ptb_app
 from app.utils import format_currency, budget_color
@@ -13,6 +13,7 @@ _ptb_app = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _ptb_app
+    sheets.init_db()          # Create table if not exists
     _ptb_app = create_ptb_app()
     await _ptb_app.initialize()
     await _ptb_app.start()

@@ -2,7 +2,7 @@ import logging
 from datetime import date
 from telegram import Update
 from telegram.ext import ContextTypes
-from app import sheets, budget as budget_module, config
+from app import database as sheets, budget as budget_module, config
 from app.parser import parse_message
 from app.categories import get_category
 from app.utils import format_currency
@@ -133,8 +133,8 @@ async def cmd_undo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not undone:
         await update.message.reply_text("No transactions to undo.")
         return
-    amount = float(undone.get("Amount", 0))
-    desc = undone.get("Description", "")
+    amount = float(undone.get("amount", 0))
+    desc = undone.get("description", "")
     await update.message.reply_text(f"Undone: {format_currency(amount)} — {desc}")
 
 
