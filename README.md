@@ -45,6 +45,7 @@ No rigid format required. Prefix `+` for income if the AI misses it.
 | Variable | Required | Description |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Yes | From BotFather |
+| `TELEGRAM_OWNER_CHAT_ID` | No | Your personal Telegram chat ID (message @userinfobot to find it) |
 | `TELEGRAM_WEBHOOK_SECRET` | Yes | Any random string |
 | `DATABASE_URL` | Yes | Auto-set by Railway PostgreSQL |
 | `WEBHOOK_BASE_URL` | Yes | Your Railway app URL |
@@ -108,6 +109,18 @@ Open http://localhost:8000
 The bot uses GPT-4o-mini (or Claude Haiku as fallback) to understand natural language messages. It extracts amount, type, description, and category in one call — no rigid format required.
 
 Falls back to keyword-based regex parsing if no AI key is set. Cost: fractions of a cent per message.
+
+## Session Handoff
+
+When a Claude Code session ends or nears its token limit, run this script to write a handoff file and receive a Telegram notification with instructions to switch accounts and continue:
+
+```bash
+python scripts/handoff_notify.py
+```
+
+This writes `handoff/latest.md` with current git state and a startup prompt for the next session, then sends a Telegram message to your `TELEGRAM_OWNER_CHAT_ID`.
+
+Requires `TELEGRAM_OWNER_CHAT_ID` in your `.env`. Find your chat ID by messaging `@userinfobot` on Telegram.
 
 ## Architecture
 
