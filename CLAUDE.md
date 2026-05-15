@@ -6,14 +6,21 @@ This file is the **primary contract** for any AI agent (Claude, ChatGPT, or othe
 
 ---
 
-## Mandatory Reading Order (Every Session)
+## Context Loading Order (Every Session)
+
+Read these files before writing any code. The vault is the compressed memory layer — reading it takes ~3K tokens and gives full project context without scanning the codebase.
 
 1. `CLAUDE.md` (this file)
-2. `docs/architecture.md` — system design, data model, module boundaries
-3. `docs/current-status.md` — what works, what is broken, what is stubbed
-4. `handoff/latest.md` — last session's context, next exact task, warnings
+2. `vault/context/LifeOS.md` — what LifeOS is, current capabilities, architecture overview
+3. `vault/context/Current_Priorities.md` — what to build next, what NOT to build yet
+4. `vault/hubs/Architecture.md` — system design, layer responsibilities, key decisions
+5. `vault/projects/finance-lifeos.md` — current implementation state, test count, known limitations
+6. `vault/sessions/recent-sessions.md` — last session's work, current blockers, next action
+7. `handoff/latest.md` — exact continuation point from last session
 
-If any of these files is missing or stale (last updated >2 sessions ago), regenerate it before doing feature work.
+**Fallback:** If vault files are missing or stale, read `docs/architecture.md` and `docs/current-status.md`.
+
+If any file is missing or stale (last updated >2 sessions ago), regenerate it before doing feature work.
 
 ---
 

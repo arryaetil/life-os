@@ -162,6 +162,24 @@ When you get a handoff notification:
 3. Open this repo
 4. Paste the contents of `handoff/start_next_session_prompt.md` as your first message
 
+## Obsidian Vault / Context Layer
+
+The `vault/` directory is the memory layer for this project. AI sessions are replaceable workers — the vault survives session rotation.
+
+```
+vault/
+  context/    — LifeOS overview, operating rules, priorities, user profile
+  hubs/       — Finance, Agent Control, Architecture summaries
+  projects/   — finance-lifeos current state
+  sessions/   — recent session log, current blockers, next action
+  decisions/  — architecture decisions and rationale
+  commands/   — Telegram, script, and Claude workflow command reference
+```
+
+Claude sessions read vault files first — ~3K tokens to understand the full project without scanning code. Files use Obsidian-compatible wikilinks for cross-referencing. Update `vault/sessions/recent-sessions.md` after significant work.
+
+---
+
 ## Architecture
 
 ```
