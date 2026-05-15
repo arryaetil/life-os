@@ -49,6 +49,21 @@ agent_state = Table(
     Column("metadata_json", String),
 )
 
+net_worth_snapshots = Table(
+    "net_worth_snapshots",
+    _metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("timestamp", String),
+    Column("cash", Float, default=0.0),
+    Column("investments", Float, default=0.0),
+    Column("crypto", Float, default=0.0),
+    Column("savings", Float, default=0.0),
+    Column("other_assets", Float, default=0.0),
+    Column("liabilities", Float, default=0.0),
+    Column("total_net_worth", Float),
+    Column("notes", String, default=""),
+)
+
 def init_db() -> None:
     _metadata.create_all(_engine)
 
@@ -121,3 +136,53 @@ def read_latest_agent_state(status_type: str | None = None) -> dict | None:
         if row is None:
             return None
         return dict(row._mapping)
+
+
+def create_net_worth_snapshot(fields: dict) -> int:
+    total = (
+        fields.get("cash", 0.0)
+        + fields.get("investments", 0.0)
+        + fields.get("crypto", 0.0)
+        + fields.get("savings", 0.0)
+        + fields.get("other_assets", 0.0)
+        - fields.get("liabilities", 0.0)
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    with _engine.connect() as conn:
+        result = conn.execute(
+            insert(net_worth_snapshots).values(
+                timestamp=fields.get("timestamp", now),
+                cash=fields.get("cash", 0.0),
+                investments=fields.get("investments", 0.0),
+                crypto=fields.get("crypto", 0.0),
+                savings=fields.get("savings", 0.0),
+                other_assets=fields.get("other_assets", 0.0),
+                liabilities=fields.get("liabilities", 0.0),
+                total_net_worth=total,
+                notes=fields.get("notes", ""),
+            )
+        )
+        conn.commit()
+        return result.inserted_primary_key[0]
+
+
+def get_latest_net_worth_snapshot() -> dict | None:
+    with _engine.connect() as conn:
+        result = conn.execute(
+            select(net_worth_snapshots)
+            .order_by(desc(net_worth_snapshots.c.id))
+            .limit(1)
+        )
+        row = result.fetchone()
+        return dict(row._mapping) if row else None
+
+
+def get_net_worth_history(limit: int = 30) -> list[dict]:
+    with _engine.connect() as conn:
+        result = conn.execute(
+            select(net_worth_snapshots)
+            .order_by(desc(net_worth_snapshots.c.id))
+            .limit(limit)
+        )
+        rows = [dict(row._mapping) for row in result]
+        return list(reversed(rows))
