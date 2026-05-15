@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, Boolean,
     MetaData, Table, insert, select, update, desc,
@@ -26,6 +27,26 @@ transactions = Table(
     Column("is_impulse", Boolean, default=False),
     Column("is_necessary", String, default=""),
     Column("notes", String, default=""),
+)
+
+agent_state = Table(
+    "agent_state",
+    _metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("timestamp", String),
+    Column("status_type", String),
+    Column("severity", String),
+    Column("requires_user_action", Boolean, default=False),
+    Column("resolved", Boolean, default=False),
+    Column("current_module", String),
+    Column("current_task", String),
+    Column("progress_message", String),
+    Column("blocker", String),
+    Column("next_task", String),
+    Column("git_summary", String),
+    Column("handoff_path", String),
+    Column("startup_prompt_path", String),
+    Column("metadata_json", String),
 )
 
 def init_db() -> None:
@@ -74,3 +95,29 @@ def undo_last_transaction() -> dict | None:
         )
         conn.commit()
         return record
+
+
+def write_agent_state(fields: dict) -> None:
+    if "timestamp" not in fields:
+        fields = {**fields, "timestamp": datetime.now(timezone.utc).isoformat()}
+    with _engine.connect() as conn:
+        conn.execute(insert(agent_state).values(**fields))
+        conn.commit()
+
+
+def read_latest_agent_state(status_type: str | None = None) -> dict | None:
+    with _engine.connect() as conn:
+        if status_type:
+            q = (
+                select(agent_state)
+                .where(agent_state.c.status_type == status_type)
+                .order_by(desc(agent_state.c.id))
+                .limit(1)
+            )
+        else:
+            q = select(agent_state).order_by(desc(agent_state.c.id)).limit(1)
+        result = conn.execute(q)
+        row = result.fetchone()
+        if row is None:
+            return None
+        return dict(row._mapping)
