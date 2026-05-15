@@ -8,7 +8,7 @@ _Last updated: 2026-05-15_
 
 | Check | Status |
 |-------|--------|
-| Tests | ✅ 74 / 74 passing |
+| Tests | ✅ 99 / 99 passing |
 | Railway deploy | ✅ Live at https://lifeos-aw.up.railway.app |
 | Telegram bot | ✅ Webhook active |
 | PostgreSQL | ✅ Railway-managed |
@@ -95,9 +95,9 @@ Nothing built. See `docs/roadmap.md` for spec.
 - `agent_state` PostgreSQL table — live state written by scripts, read by bot
 - Bot commands: `/status`, `/next`, `/git`, `/handoff` — read from PostgreSQL, work from Railway
 - `handoff/start_next_session_prompt.md` — static startup prompt for next session
+- `app/auth.py` — `is_owner()` + `owner_only()` wrapper; all bot handlers gated to `TELEGRAM_OWNER_CHAT_ID`
 
 ### What's Left (for future sessions)
-- Inbound command authentication (only respond to TELEGRAM_OWNER_CHAT_ID)
 - `/resolve` command to mark decisions/actions as resolved
 - Proactive notifications (e.g., daily summary)
 

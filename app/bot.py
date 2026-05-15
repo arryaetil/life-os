@@ -1,5 +1,6 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from app import config
+from app.auth import owner_only
 from app.commands import (
     handle_message,
     cmd_start, cmd_help, cmd_today, cmd_week,
@@ -10,21 +11,21 @@ from app.commands import (
 def create_ptb_app() -> Application:
     application = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", cmd_start))
-    application.add_handler(CommandHandler("help", cmd_help))
-    application.add_handler(CommandHandler("today", cmd_today))
-    application.add_handler(CommandHandler("week", cmd_week))
-    application.add_handler(CommandHandler("month", cmd_month))
-    application.add_handler(CommandHandler("income", cmd_income))
-    application.add_handler(CommandHandler("undo", cmd_undo))
-    application.add_handler(CommandHandler("summary", cmd_summary))
-    application.add_handler(CommandHandler("budget", cmd_budget))
-    application.add_handler(CommandHandler("status", cmd_status))
-    application.add_handler(CommandHandler("next", cmd_next))
-    application.add_handler(CommandHandler("git", cmd_git))
-    application.add_handler(CommandHandler("handoff", cmd_handoff))
+    application.add_handler(CommandHandler("start", owner_only(cmd_start)))
+    application.add_handler(CommandHandler("help", owner_only(cmd_help)))
+    application.add_handler(CommandHandler("today", owner_only(cmd_today)))
+    application.add_handler(CommandHandler("week", owner_only(cmd_week)))
+    application.add_handler(CommandHandler("month", owner_only(cmd_month)))
+    application.add_handler(CommandHandler("income", owner_only(cmd_income)))
+    application.add_handler(CommandHandler("undo", owner_only(cmd_undo)))
+    application.add_handler(CommandHandler("summary", owner_only(cmd_summary)))
+    application.add_handler(CommandHandler("budget", owner_only(cmd_budget)))
+    application.add_handler(CommandHandler("status", owner_only(cmd_status)))
+    application.add_handler(CommandHandler("next", owner_only(cmd_next)))
+    application.add_handler(CommandHandler("git", owner_only(cmd_git)))
+    application.add_handler(CommandHandler("handoff", owner_only(cmd_handoff)))
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        MessageHandler(filters.TEXT & ~filters.COMMAND, owner_only(handle_message))
     )
 
     return application
