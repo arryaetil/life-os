@@ -50,8 +50,7 @@ async def home(request: Request):
     weekly = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)
     monthly = budget_module.calculate_monthly_summary(transactions)
     recent = list(reversed(transactions))[:10]
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "active_page": "home",
         "weekly": weekly,
         "monthly": monthly,
@@ -67,8 +66,7 @@ async def categories_page(request: Request):
         if monthly["by_category"] else None
     )
     max_amount = max(monthly["by_category"].values()) if monthly["by_category"] else 1.0
-    return templates.TemplateResponse("categories.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "categories.html", {
         "active_page": "categories",
         "monthly": monthly,
         "top_category": top_category,
@@ -78,8 +76,7 @@ async def categories_page(request: Request):
 @app.get("/transactions")
 async def transactions_page(request: Request):
     transactions = sheets.get_all_transactions()
-    return templates.TemplateResponse("transactions.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "transactions.html", {
         "active_page": "transactions",
         "transactions": list(reversed(transactions)),
     })
