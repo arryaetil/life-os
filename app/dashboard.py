@@ -81,18 +81,3 @@ async def transactions_page(request: Request):
         "active_page": "transactions",
         "transactions": list(reversed(transactions)),
     })
-
-@app.get("/debug/db")
-async def debug_db():
-    from app import config
-    db_url = config.DATABASE_URL
-    db_type = "sqlite" if "sqlite" in db_url else "postgresql"
-    db_host = db_url.split("@")[-1].split("/")[0] if "@" in db_url else "local"
-    state = sheets.read_latest_agent_state()
-    txn_count = len(sheets.get_all_transactions())
-    return {
-        "db_type": db_type,
-        "db_host": db_host,
-        "agent_state_latest": state["progress_message"] if state else None,
-        "transaction_count": txn_count,
-    }
