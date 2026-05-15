@@ -81,3 +81,13 @@ async def transactions_page(request: Request):
         "active_page": "transactions",
         "transactions": list(reversed(transactions)),
     })
+
+@app.get("/debug/db")
+async def debug_db():
+    state = sheets.read_latest_agent_state()
+    txn_count = len(sheets.get_all_transactions())
+    return {
+        "agent_state_latest": state["progress_message"] if state else None,
+        "agent_state_id": state["id"] if state else None,
+        "transaction_count": txn_count,
+    }
