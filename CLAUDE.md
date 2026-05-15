@@ -152,7 +152,7 @@ pytest tests/test_parser.py -v  # Specific file
 | Module | Name | Status |
 |--------|------|--------|
 | 1.0 | Finance cashflow tracker | DONE |
-| 1.1 | Net Worth tracker | NOT STARTED |
+| 1.1 | Net Worth tracker | DONE |
 | 1.2 | Portfolio/accounts tracker | NOT STARTED |
 | 1.3 | Screenshot/CSV portfolio import | NOT STARTED |
 | 1.4 | Agent control layer + Telegram notifications | NOT STARTED |

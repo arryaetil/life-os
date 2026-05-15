@@ -44,6 +44,21 @@ LifeOS is a personal life-management system built as independent modules sharing
 
 **Categories:** Food, Social, Transport, Project, Health, Clothing, Education, Impulse, Income, Investment, Transfer, Other
 
+**Table: `net_worth_snapshots`** (Module 1.1)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Integer PK | auto-increment |
+| timestamp | String | ISO 8601 UTC |
+| cash | Float | 0.0 if not provided |
+| investments | Float | 0.0 if not provided |
+| crypto | Float | 0.0 if not provided |
+| savings | Float | 0.0 if not provided |
+| other_assets | Float | 0.0 if not provided |
+| liabilities | Float | positive; subtracted in total |
+| total_net_worth | Float | calculated: assets − liabilities |
+| notes | String | optional user note |
+
 ### Request Flow
 
 ```
@@ -65,6 +80,7 @@ Telegram message
 | GET / | dashboard.html | weekly KPIs, monthly summary, recent 10 |
 | GET /categories | categories.html | monthly by-category breakdown |
 | GET /transactions | transactions.html | full history |
+| GET /networth | networth.html | net worth KPIs, goal progress, Chart.js trend, snapshots |
 | POST /webhook | — | Telegram update handler |
 
 ### Key Files
@@ -80,6 +96,9 @@ Telegram message
 | `app/dashboard.py` | FastAPI app, webhook, dashboard routes |
 | `app/bot.py` | PTB Application factory |
 | `app/utils.py` | format_currency, get_week_start, get_month |
+| `app/networth_parser.py` | Natural language → net worth asset fields |
+| `app/networth.py` | Goal calculations, change delta, ASCII progress bar |
+| `app/auth.py` | `is_owner()` + `owner_only()` handler wrapper |
 
 ---
 

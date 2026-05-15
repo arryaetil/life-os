@@ -34,22 +34,19 @@ A personal operating system delivered through Telegram and a web dashboard. Each
 - Deployed on Railway at https://lifeos-aw.up.railway.app
 - 74 passing tests
 
-### 1.1 — Net Worth Tracker 🔲 NOT STARTED
+### 1.1 — Net Worth Tracker ✅ DONE
 
 **Goal:** Snapshot total net worth across all accounts/assets at any point in time.
 
-- Input: manual Telegram commands
-- New DB table: `net_worth_snapshots`
-- Bot commands: `/networth`, `/snapshot <category> <label> <amount>`, `/addaccount`
-- Dashboard page: `/networth`
-  - Current total + breakdown by category (bar chart)
-  - Month-over-month delta
-  - Time series line chart
-- Categories: Cash, Savings, Investments, Property, Crypto, Debt (negative)
+- Natural language Telegram input ("net worth cash 2k investments 8k savings 3k")
+- AI parse (GPT-4o-mini) + regex fallback, `k` suffix, `debt`→liabilities alias
+- DB table: `net_worth_snapshots` — append-only historical snapshots
+- Bot commands: `/networth`, `/networth_history`, `/goal`
+- Dashboard page: `/networth` — KPIs, goal progress (€25K + €30K), asset allocation bars, Chart.js trend chart, snapshots table
 
-**Acceptance criteria:**
-- Can log a net worth snapshot in <15 seconds via Telegram
-- Dashboard shows current net worth and trend
+**Acceptance criteria met:**
+- ✅ Can log a net worth snapshot in <15 seconds via Telegram
+- ✅ Dashboard shows current net worth and Chart.js trend chart
 
 ### 1.2 — Portfolio / Accounts Tracker 🔲 NOT STARTED
 

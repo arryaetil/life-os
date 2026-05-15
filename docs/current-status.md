@@ -8,7 +8,7 @@ _Last updated: 2026-05-15_
 
 | Check | Status |
 |-------|--------|
-| Tests | ✅ 99 / 99 passing |
+| Tests | ✅ 148 / 148 passing |
 | Railway deploy | ✅ Live at https://lifeos-aw.up.railway.app |
 | Telegram bot | ✅ Webhook active |
 | PostgreSQL | ✅ Railway-managed |
@@ -61,9 +61,33 @@ _Last updated: 2026-05-15_
 
 ## Module 1.1 — Net Worth Tracker
 
-**Status: 🔲 NOT STARTED**
+**Status: ✅ COMPLETE**
 
-Nothing built. See `docs/roadmap.md` for spec.
+### What Works
+- Natural language snapshot logging via Telegram: "net worth cash 2k investments 8k savings 3k"
+- AI parse (GPT-4o-mini) + regex fallback with `k` suffix support and `debt`→`liabilities` alias
+- PostgreSQL `net_worth_snapshots` table — append-only historical snapshots, never overwritten
+- `total_net_worth` always calculated as `assets − liabilities` at insert time
+- Bot commands (all owner-gated):
+  - `/networth` — latest snapshot with breakdown
+  - `/networth_history` — last 5 snapshots with running delta
+  - `/goal` — €25K and €30K progress with ASCII progress bars
+- Message routing: `handle_message` auto-detects net worth messages before finance parser
+- Dashboard page `/networth`:
+  - Net worth KPI card + change-since-last-snapshot KPI
+  - Goal progress cards for €25K and €30K
+  - Asset allocation bar chart
+  - Chart.js line chart (trend over time, shown when 2+ snapshots exist)
+  - Recent snapshots table
+  - Empty-state UX with Telegram onboarding instructions
+
+### Key Files
+- `app/networth_parser.py` — natural language → asset fields
+- `app/networth.py` — goal calculations, change delta, ASCII progress bar
+- `app/templates/networth.html` — dashboard page with Chart.js
+
+### Do Not Touch
+- `net_worth_snapshots` table — append-only by design; do not alter schema or delete rows
 
 ---
 
