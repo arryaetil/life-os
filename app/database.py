@@ -178,6 +178,7 @@ def get_latest_net_worth_snapshot() -> dict | None:
 
 
 def get_net_worth_history(limit: int = 30) -> list[dict]:
+    """Return the most recent `limit` snapshots ordered oldest-first."""
     with _engine.connect() as conn:
         result = conn.execute(
             select(net_worth_snapshots)
