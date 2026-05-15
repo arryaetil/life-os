@@ -1,5 +1,8 @@
+import logging
 import os
 import httpx
+
+_log = logging.getLogger(__name__)
 
 
 def send_telegram_message(text: str) -> bool:
@@ -7,10 +10,10 @@ def send_telegram_message(text: str) -> bool:
     chat_id = os.environ.get("TELEGRAM_OWNER_CHAT_ID", "")
 
     if not token:
-        print("ERROR: TELEGRAM_BOT_TOKEN is not set")
+        _log.warning("TELEGRAM_BOT_TOKEN is not set")
         return False
     if not chat_id:
-        print("ERROR: TELEGRAM_OWNER_CHAT_ID is not set")
+        _log.warning("TELEGRAM_OWNER_CHAT_ID is not set")
         return False
 
     try:
@@ -21,8 +24,8 @@ def send_telegram_message(text: str) -> bool:
         )
         if response.status_code == 200:
             return True
-        print(f"ERROR: Telegram API returned {response.status_code}: {response.text}")
+        _log.warning("Telegram API returned %s: %s", response.status_code, response.text)
         return False
     except Exception as e:
-        print(f"ERROR: Failed to send Telegram message: {e}")
+        _log.warning("Failed to send Telegram message: %s", e)
         return False
