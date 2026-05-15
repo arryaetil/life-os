@@ -4,6 +4,7 @@ from app.commands import (
     handle_message,
     cmd_start, cmd_help, cmd_today, cmd_week,
     cmd_month, cmd_income, cmd_undo, cmd_summary, cmd_budget,
+    cmd_status, cmd_next, cmd_git, cmd_handoff,
 )
 
 def create_ptb_app() -> Application:
@@ -18,6 +19,10 @@ def create_ptb_app() -> Application:
     application.add_handler(CommandHandler("undo", cmd_undo))
     application.add_handler(CommandHandler("summary", cmd_summary))
     application.add_handler(CommandHandler("budget", cmd_budget))
+    application.add_handler(CommandHandler("status", cmd_status))
+    application.add_handler(CommandHandler("next", cmd_next))
+    application.add_handler(CommandHandler("git", cmd_git))
+    application.add_handler(CommandHandler("handoff", cmd_handoff))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )

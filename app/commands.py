@@ -182,3 +182,70 @@ async def cmd_budget(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f"{format_currency(status['weekly_spent'])} / {format_currency(status['weekly_budget'])}\n"
         f"Remaining: {format_currency(status['remaining'])}"
     )
+
+
+async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    state = database.read_latest_agent_state()
+    if not state:
+        await update.message.reply_text(
+            "No state recorded yet.\n"
+            "Run: python scripts/notify_me.py progress \"message\""
+        )
+        return
+    ts = (state.get("timestamp") or "")[:16].replace("T", " ")
+    lines = [f"📊 Status — {ts} UTC\n"]
+    if state.get("current_module"):
+        lines.append(f"Module: {state['current_module']}")
+    if state.get("current_task"):
+        lines.append(f"Task: {state['current_task']}")
+    if state.get("progress_message"):
+        lines.append(f"Progress: {state['progress_message']}")
+    lines.append(f"Blocker: {state.get('blocker') or 'None'}")
+    if state.get("git_summary"):
+        first_line = state["git_summary"].splitlines()[0]
+        lines.append(f"Git: {first_line}")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_next(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    state = database.read_latest_agent_state()
+    if not state or not state.get("next_task"):
+        await update.message.reply_text("No next task recorded yet.")
+        return
+    ts = (state.get("timestamp") or "")[:16].replace("T", " ")
+    await update.message.reply_text(
+        f"⏭ Next task:\n{state['next_task']}\n(Recorded: {ts} UTC)"
+    )
+
+
+async def cmd_git(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    state = database.read_latest_agent_state()
+    if not state or not state.get("git_summary"):
+        await update.message.reply_text("No git summary recorded yet.")
+        return
+    ts = (state.get("timestamp") or "")[:16].replace("T", " ")
+    await update.message.reply_text(
+        f"🔀 Git summary:\n{state['git_summary']}\n(Recorded: {ts} UTC)"
+    )
+
+
+async def cmd_handoff(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    state = database.read_latest_agent_state(status_type="handoff")
+    if not state:
+        await update.message.reply_text(
+            "No handoff recorded yet.\n"
+            "Run: python scripts/create_handoff.py"
+        )
+        return
+    ts = (state.get("timestamp") or "")[:16].replace("T", " ")
+    lines = [f"🔄 Last handoff: {ts} UTC\n"]
+    if state.get("current_module"):
+        lines.append(f"Module: {state['current_module']}")
+    if state.get("next_task"):
+        lines.append(f"Next: {state['next_task']}")
+    lines.append("Read handoff/latest.md for full startup prompt.")
+    await update.message.reply_text("\n".join(lines))
