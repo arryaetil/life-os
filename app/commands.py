@@ -16,23 +16,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parsed = parse_message(text)
     except ValueError:
         await update.message.reply_text(
-            "Couldn't parse that. Try: '14 kebab' or '+314 DUO income'."
+            "I couldn't find an amount in that message.\n\n"
+            "Try something like:\n"
+            "  14 kebab\n"
+            "  spent 8.50 on coffee\n"
+            "  +314 DUO income"
         )
         return
 
-    category = get_category(parsed["description"])
+    # Use AI-provided category if available, otherwise keyword/AI fallback
+    category = parsed.get("category") or get_category(parsed["description"])
+
     sheets.append_transaction(parsed, category)
 
     transactions = sheets.get_all_transactions()
     status = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)
 
+    pct_left = 100 - status["pct_used"]
+    if pct_left < 10:
+        budget_note = "⚠️ Almost out of budget!"
+    elif pct_left < 25:
+        budget_note = "Getting close to your limit."
+    else:
+        budget_note = f"{pct_left:.0f}% of weekly budget left."
+
     reply = (
-        f"Logged: {format_currency(parsed['amount'])} — "
-        f"{parsed['description']} — {category}.\n"
-        f"Weekly spent: {format_currency(status['weekly_spent'])} / "
-        f"{format_currency(status['weekly_budget'])}.\n"
-        f"Remaining: {format_currency(status['remaining'])} "
-        f"({100 - status['pct_used']:.0f}% left)."
+        f"Got it — {format_currency(parsed['amount'])} on {parsed['description']} ({category}).\n"
+        f"Weekly: {format_currency(status['weekly_spent'])} / {format_currency(status['weekly_budget'])}. "
+        f"{budget_note}"
     )
     await update.message.reply_text(reply)
 
