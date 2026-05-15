@@ -4,7 +4,7 @@ from app.utils import get_week_start, get_month
 def calculate_weekly_status(
     transactions: list[dict],
     budget: float,
-    reference_date: date = None,
+    reference_date: date | None = None,
 ) -> dict:
     if reference_date is None:
         reference_date = date.today()
@@ -32,7 +32,7 @@ def calculate_weekly_status(
 
 def calculate_monthly_summary(
     transactions: list[dict],
-    reference_date: date = None,
+    reference_date: date | None = None,
 ) -> dict:
     if reference_date is None:
         reference_date = date.today()

@@ -67,3 +67,16 @@ def test_impulse_total():
     }]
     result = calculate_monthly_summary(txns, REF)
     assert result["impulse_total"] == 30.0
+
+def test_weekly_status_empty_transactions():
+    result = calculate_weekly_status([], 90.0, REF)
+    assert result["weekly_spent"] == 0.0
+    assert result["remaining"] == 90.0
+    assert result["pct_used"] == 0.0
+
+def test_monthly_summary_empty_transactions():
+    result = calculate_monthly_summary([], REF)
+    assert result["monthly_spent"] == 0.0
+    assert result["monthly_income"] == 0.0
+    assert result["net_cashflow"] == 0.0
+    assert result["by_category"] == {}

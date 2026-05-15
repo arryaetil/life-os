@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, date
+from datetime import datetime
 from app.utils import get_week_start, get_month
 
 TRANSFER_KEYWORDS = {"savings", "portfolio", "transfer", "spaarrekening"}

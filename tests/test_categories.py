@@ -66,3 +66,11 @@ def test_no_key_returns_other(monkeypatch):
     monkeypatch.setattr("app.categories.config.OPENAI_API_KEY", "")
     monkeypatch.setattr("app.categories.config.ANTHROPIC_API_KEY", "")
     assert get_category("xyzunknown123") == "Other"
+
+def test_no_false_positive_ah():
+    # "ah" was removed from Food keywords to prevent "thanks", "cash" matching
+    assert _keyword_match("thanks for the cash payment") is None
+
+def test_no_false_positive_ov():
+    # "ov" was removed from Transport keywords to prevent "oven", "loved" matching
+    assert _keyword_match("bought an oven") is None

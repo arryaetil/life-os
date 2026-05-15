@@ -26,10 +26,27 @@ def test_get_month():
     assert get_month(date(2026, 5, 15)) == "2026-05"
 
 def test_budget_color_low():
-    assert budget_color(30, 90) == "accent"
+    assert budget_color(38.3) == "accent"
 
 def test_budget_color_warning():
-    assert budget_color(70, 90) == "warning"
+    assert budget_color(77.8) == "warning"
 
 def test_budget_color_danger():
-    assert budget_color(85, 90) == "danger"
+    assert budget_color(95.0) == "danger"
+
+def test_budget_color_exactly_75():
+    assert budget_color(75.0) == "warning"
+
+def test_budget_color_exactly_90():
+    assert budget_color(90.0) == "danger"
+
+def test_get_week_start_none_returns_monday():
+    from datetime import date
+    result = get_week_start(None)
+    assert result.weekday() == 0  # Monday
+
+def test_get_month_none_returns_current():
+    from datetime import date
+    result = get_month(None)
+    today = date.today()
+    assert result == today.strftime("%Y-%m")

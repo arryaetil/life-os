@@ -1,3 +1,4 @@
+import logging
 from app import config
 
 # Imported at module level so tests can patch them cleanly.
@@ -15,7 +16,7 @@ KEYWORDS: dict[str, list[str]] = {
     "Food": [
         "lunch", "dinner", "coffee", "kebab", "snack", "groceries", "pizza",
         "burger", "sushi", "sandwich", "supermarket", "takeaway", "bread",
-        "ah", "lidl", "albert", "aldi", "jumbo", "restaurant", "eten", "brood",
+        "lidl", "albert", "aldi", "jumbo", "restaurant", "eten", "brood",
     ],
     "Social": [
         "date", "drinks", "party", "cinema", "friends", "bar", "club",
@@ -23,7 +24,7 @@ KEYWORDS: dict[str, list[str]] = {
     ],
     "Transport": [
         "fuel", "train", "bus", "uber", "parking", "taxi", "metro",
-        "tram", "ns", "ov", "benzine", "trein",
+        "tram", "benzine", "trein",
     ],
     "Project": [
         "api", "domain", "hosting", "software", "tool", "credits",
@@ -58,6 +59,8 @@ _AI_PROMPT = (
     'Description: "{description}"\n'
     "Reply with the category name only. No explanation."
 )
+
+_log = logging.getLogger(__name__)
 
 def _keyword_match(description: str) -> str | None:
     desc_lower = description.lower()
@@ -95,5 +98,6 @@ def get_category(description: str) -> str:
         return matched
     try:
         return _ai_categorize(description)
-    except Exception:
+    except Exception as exc:
+        _log.warning("AI categorization failed for %r: %s", description, exc)
         return "Other"
