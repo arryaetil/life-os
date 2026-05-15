@@ -22,12 +22,21 @@ _FIELD_PATTERNS = [
     ("liabilities",  re.compile(r"(?:liabilities|liability|debt)\s+" + _AMOUNT_PAT, re.IGNORECASE)),
 ]
 
-_TOTAL_ONLY_PAT = re.compile(r"(?:net\s*worth|nw)\s+" + _AMOUNT_PAT, re.IGNORECASE)
+_TOTAL_ONLY_PAT = re.compile(
+    r"(?:net\s*worth|nw)\s+(?:is\s+)?" + _AMOUNT_PAT, re.IGNORECASE
+)
 
 _AI_PROMPT = (
     'Parse this net worth message and return ONLY valid JSON:\n'
     '{{"cash":0,"investments":0,"crypto":0,"savings":0,"other_assets":0,"liabilities":0}}\n'
-    'Rules: missing fields = 0, "k" suffix = x1000, liabilities/debt are positive numbers.\n'
+    'Rules:\n'
+    '- missing fields = 0\n'
+    '- "k" suffix = x1000 (2k = 2000)\n'
+    '- liabilities/debt are positive numbers representing money owed\n'
+    '- if only a total is given with no breakdown (e.g. "net worth 15000", '
+    '"net worth 15k total", "my net worth is 20000", "total net worth 30k"), '
+    'put the value in other_assets and leave all other fields as 0\n'
+    '- NEVER put a total net worth value in liabilities\n'
     'Message: "{text}"'
 )
 

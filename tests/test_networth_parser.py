@@ -64,6 +64,33 @@ def test_parses_total_only():
     assert result["cash"] == pytest.approx(0.0)
     assert result["liabilities"] == pytest.approx(0.0)
 
+def test_parses_total_only_plain_number():
+    result = parse_net_worth_message("net worth 15621 total")
+    assert result["other_assets"] == pytest.approx(15621.0)
+    assert result["liabilities"] == pytest.approx(0.0)
+
+def test_parses_total_only_no_suffix():
+    result = parse_net_worth_message("net worth 15000")
+    assert result["other_assets"] == pytest.approx(15000.0)
+    assert result["liabilities"] == pytest.approx(0.0)
+
+def test_parses_total_only_is_connector():
+    result = parse_net_worth_message("my net worth is 20000")
+    assert result["other_assets"] == pytest.approx(20000.0)
+    assert result["liabilities"] == pytest.approx(0.0)
+
+def test_parses_total_net_worth_prefix():
+    result = parse_net_worth_message("total net worth 30k")
+    assert result["other_assets"] == pytest.approx(30000.0)
+    assert result["liabilities"] == pytest.approx(0.0)
+
+def test_total_only_all_asset_fields_zero():
+    result = parse_net_worth_message("my net worth is 20000")
+    assert result["cash"] == pytest.approx(0.0)
+    assert result["investments"] == pytest.approx(0.0)
+    assert result["crypto"] == pytest.approx(0.0)
+    assert result["savings"] == pytest.approx(0.0)
+
 def test_missing_fields_default_to_zero():
     result = parse_net_worth_message("net worth cash 3000")
     assert result["investments"] == pytest.approx(0.0)
