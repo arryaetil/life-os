@@ -74,3 +74,37 @@ def test_no_false_positive_ah():
 def test_no_false_positive_ov():
     # "ov" was removed from Transport keywords to prevent "oven", "loved" matching
     assert _keyword_match("bought an oven") is None
+
+
+from app.categories import normalize_category, KNOWN_CATEGORIES
+
+
+def test_normalize_known_category_passthrough():
+    assert normalize_category("Food") == "Food"
+    assert normalize_category("Transport") == "Transport"
+    assert normalize_category("Health") == "Health"
+
+
+def test_normalize_synonym_maps_to_canonical():
+    assert normalize_category("Eating") == "Food"
+    assert normalize_category("Meals") == "Food"
+    assert normalize_category("Fitness") == "Health"
+    assert normalize_category("Sports") == "Health"
+    assert normalize_category("Gas") == "Transport"
+    assert normalize_category("Fuel") == "Transport"
+    assert normalize_category("Shopping") == "Clothing"
+
+
+def test_normalize_title_cases_dynamic_category():
+    assert normalize_category("sports gear") == "Sports Gear"
+    assert normalize_category("unknown item") == "Unknown Item"
+
+
+def test_normalize_empty_returns_other():
+    assert normalize_category("") == "Other"
+    assert normalize_category("   ") == "Other"
+
+
+def test_normalize_case_insensitive_synonym():
+    assert normalize_category("eating") == "Food"
+    assert normalize_category("MEALS") == "Food"

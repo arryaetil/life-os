@@ -51,6 +51,38 @@ KEYWORDS: dict[str, list[str]] = {
     "Transfer": ["savings", "portfolio", "transfer", "spaarrekening"],
 }
 
+KNOWN_CATEGORIES = frozenset({
+    "Food", "Transport", "Social", "Health", "Education",
+    "Project", "Clothing", "Income", "Investment", "Transfer",
+    "Impulse", "Other",
+})
+
+_CATEGORY_SYNONYMS: dict[str, str] = {
+    "Eating": "Food", "Meals": "Food", "Restaurant": "Food",
+    "Groceries": "Food", "Grocery": "Food", "Dining": "Food",
+    "Car": "Transport", "Gas": "Transport", "Fuel": "Transport",
+    "Travel": "Transport", "Petrol": "Transport",
+    "Entertainment": "Social", "Nightlife": "Social",
+    "Fitness": "Health", "Medical": "Health", "Sports": "Health",
+    "Sport": "Health", "Training": "Health", "Boxing": "Health",
+    "Books": "Education", "Learning": "Education", "Course": "Education",
+    "Shopping": "Clothing", "Fashion": "Clothing",
+    "Tech": "Project", "Software": "Project", "Tools": "Project",
+    "Technology": "Project",
+}
+
+
+def normalize_category(category: str) -> str:
+    """Normalize an AI-suggested category. Maps synonyms to canonical names.
+
+    Unknown categories pass through title-cased (dynamic category creation).
+    """
+    if not category or not category.strip():
+        return "Other"
+    cat = category.strip().title()
+    return _CATEGORY_SYNONYMS.get(cat, cat)
+
+
 _AI_PROMPT = (
     "You are a personal finance categorizer. Given this expense description, "
     "return exactly one category from this list:\n"
@@ -97,7 +129,8 @@ def get_category(description: str) -> str:
     if matched:
         return matched
     try:
-        return _ai_categorize(description)
+        raw = _ai_categorize(description)
+        return normalize_category(raw)
     except Exception as exc:
         _log.warning("AI categorization failed for %r: %s", description, exc)
         return "Other"
