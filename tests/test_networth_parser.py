@@ -99,3 +99,10 @@ def test_missing_fields_default_to_zero():
 def test_returns_all_expected_keys():
     result = parse_net_worth_message("net worth cash 1000")
     assert set(result.keys()) == {"cash", "investments", "crypto", "savings", "other_assets", "liabilities"}
+
+def test_parses_total_only_k_suffix_no_breakdown():
+    """'net worth 15k' should set other_assets=15000, liabilities=0."""
+    result = parse_net_worth_message("net worth 15k")
+    assert result["other_assets"] == pytest.approx(15000.0)
+    assert result["liabilities"] == pytest.approx(0.0)
+    assert result["cash"] == pytest.approx(0.0)
