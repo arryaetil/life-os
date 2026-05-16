@@ -35,10 +35,11 @@ async def test_cmd_networth_no_data_replies_with_message():
 async def test_cmd_networth_shows_total():
     from app.commands import cmd_networth
     update = _make_update()
-    with patch("app.database.get_latest_net_worth_snapshot", return_value=SNAPSHOT):
+    with patch("app.database.get_latest_net_worth_snapshot", return_value=SNAPSHOT), \
+         patch("app.database.get_all_transactions", return_value=[]):
         await cmd_networth(update, MagicMock())
     text = update.message.reply_text.call_args[0][0]
-    assert "13000.00" in text
+    assert "13000.00" in text  # live NW = baseline 13000 + no transactions
 
 
 async def test_cmd_networth_history_no_data():
@@ -64,7 +65,8 @@ async def test_cmd_networth_history_shows_entries():
 async def test_cmd_goal_shows_30k():
     from app.commands import cmd_goal
     update = _make_update()
-    with patch("app.database.get_latest_net_worth_snapshot", return_value=SNAPSHOT):
+    with patch("app.database.get_latest_net_worth_snapshot", return_value=SNAPSHOT), \
+         patch("app.database.get_all_transactions", return_value=[]):
         await cmd_goal(update, MagicMock())
     text = update.message.reply_text.call_args[0][0]
     assert "30K" in text or "30k" in text
@@ -78,3 +80,24 @@ async def test_cmd_goal_no_data():
         await cmd_goal(update, MagicMock())
     update.message.reply_text.assert_called_once()
     assert "No net worth" in update.message.reply_text.call_args[0][0]
+
+
+async def test_cmd_networth_shows_live_total_with_transactions():
+    """Live NW = baseline 13000 + income 500 = 13500, not raw snapshot 13000."""
+    from app.commands import cmd_networth
+    update = _make_update()
+    txns = [
+        {
+            "type": "Income", "amount": 500.0,
+            "timestamp": "2026-05-16T10:00:00+00:00",
+            "notes": "", "date": "2026-05-16",
+            "week_start": "2026-05-13", "month": "2026-05",
+            "description": "salary", "category": "Income",
+            "tag": "", "payment_type": "", "is_impulse": False, "is_necessary": "",
+        }
+    ]
+    with patch("app.database.get_latest_net_worth_snapshot", return_value=SNAPSHOT), \
+         patch("app.database.get_all_transactions", return_value=txns):
+        await cmd_networth(update, MagicMock())
+    text = update.message.reply_text.call_args[0][0]
+    assert "13500.00" in text

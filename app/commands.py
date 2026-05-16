@@ -7,7 +7,7 @@ from app.parser import parse_message
 from app.categories import get_category
 from app.utils import format_currency
 from app.networth_parser import is_net_worth_message, parse_net_worth_message
-from app.networth import GOALS, calculate_goal_progress, ascii_progress_bar
+from app.networth import GOALS, calculate_goal_progress, ascii_progress_bar, calculate_live_net_worth
 
 _log = logging.getLogger(__name__)
 
@@ -293,15 +293,18 @@ async def cmd_networth(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "  net worth cash 2000 investments 5000 savings 3000"
         )
         return
+    transactions = database.get_all_transactions()
+    live_nw = calculate_live_net_worth(snap, transactions)
     date_str = (snap.get("timestamp") or "")[:10]
-    lines = [f"💰 Net Worth — {date_str}\n"]
+    lines = ["💰 Net Worth (Live)\n"]
+    lines.append(f"Total: {format_currency(live_nw)}")
+    lines.append(f"Baseline ({date_str}): {format_currency(snap['total_net_worth'])}")
     for label, key in [("Cash", "cash"), ("Investments", "investments"),
                        ("Crypto", "crypto"), ("Savings", "savings"),
                        ("Other Assets", "other_assets"), ("Liabilities", "liabilities")]:
         val = snap.get(key, 0.0)
         if val > 0:
-            lines.append(f"{label}: {format_currency(val)}")
-    lines.append(f"\nTotal: {format_currency(snap['total_net_worth'])}")
+            lines.append(f"  {label}: {format_currency(val)}")
     await update.message.reply_text("\n".join(lines))
 
 
@@ -337,10 +340,11 @@ async def cmd_goal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "  net worth cash 2000 investments 5000"
         )
         return
-    current = snap["total_net_worth"]
+    transactions = database.get_all_transactions()
+    live_nw = calculate_live_net_worth(snap, transactions)
     lines = ["🎯 Financial Goals\n"]
     for goal in GOALS:
-        progress = calculate_goal_progress(current, goal["target"])
+        progress = calculate_goal_progress(live_nw, goal["target"])
         bar = ascii_progress_bar(progress["pct"])
         if progress["achieved"]:
             lines.append(f"{goal['label']}: {bar} ✅ Achieved!")
