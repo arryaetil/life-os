@@ -11,3 +11,4 @@ build/
 .DS_Store
 lifeos.db
 .claude/settings.local.json
+.obsidian/
