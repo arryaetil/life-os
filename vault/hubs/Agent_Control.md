@@ -14,6 +14,10 @@
 - `agent_state` PostgreSQL table — live state written by scripts, read by bot
 - Bot commands: `/status`, `/next`, `/git`, `/handoff`
 - `app/auth.py` — `is_owner()` + `owner_only()` handler wrapper
+- `app/agent_control.py` — `is_agent_reply(text)` detects A/B/C/DONE/yes/no/approve/reject/continue/stop
+- Reply routing in `handle_message()` — agent replies routed before finance parsing
+- `database.read_pending_action()` — queries latest unresolved action-requiring state
+- `database.resolve_agent_state(id)` — marks a pending state resolved when user replies
 
 ---
 
@@ -68,6 +72,26 @@ When Claude's session nears token limit:
 
 ## What's Left to Build
 
-- `/resolve` command to mark decisions/actions as resolved
-- Proactive scheduled notifications (Monday weekly summary, 1st of month review, Sunday NW reminder)
-- `TELEGRAM_CHAT_ID` env var for push messages (distinct from `TELEGRAM_OWNER_CHAT_ID`)
+- `/resolve` command as an alternative to inline reply routing (optional)
+- Proactive scheduled notifications (Monday weekly summary, 1st of month review)
+
+## Reply Routing
+
+Agent-control replies are recognized before finance parsing. Recognized tokens (case-insensitive, exact match):
+
+```
+a, b, c, d, yes, no, done, approve, approved, reject, continue, stop
+```
+
+When the bot receives one of these:
+1. Checks for an unresolved `agent_state` row with `requires_user_action=True`
+2. If found: resolves it, sends "Decision received: X." or "Manual action marked as done."
+3. If not found: sends "No active agent decision is waiting."
+
+## Completion vs Handoff
+
+| Scenario | Command | Telegram sent? |
+|----------|---------|---------------|
+| Task finished, session continues | `notify_me.py complete "..."` | ✅ "🎉 Complete: ..." |
+| Update files silently | `create_handoff.py --silent` | ❌ Nothing |
+| Session ending, switch account | `create_handoff.py` | ✅ "🔄 Session handoff needed" |

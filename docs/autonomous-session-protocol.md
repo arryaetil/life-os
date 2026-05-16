@@ -108,6 +108,14 @@ Send when a module, sub-module, or major task finishes.
 python scripts/notify_me.py complete "Module 1.2 portfolio tracker done. 185/185 tests passing. Dashboard updated."
 ```
 
+### Completion vs Handoff — Important Distinction
+
+**Task complete, session continues** → `notify_me.py complete "..."` only. No Telegram handoff.
+**Update handoff files silently** → `python scripts/create_handoff.py --silent` — writes files, no Telegram.
+**Session actually ending** → `python scripts/create_handoff.py` — writes files AND sends "session handoff needed" notification.
+
+Never run `create_handoff.py` (without `--silent`) after a normal task completion. It sends a disruptive "session handoff needed" notification.
+
 ### Handoff
 Send when session/context limit is near or work must stop. Always run `create_handoff.py` — never just the notify type.
 
@@ -116,6 +124,24 @@ python scripts/create_handoff.py
 ```
 
 This writes `handoff/latest.md`, updates `handoff/start_next_session_prompt.md`, records state to PostgreSQL, and sends the Telegram notification.
+
+---
+
+## Replying to Decisions and Manual Actions
+
+When Claude sends a decision or manual action notification, reply directly in Telegram:
+
+| Situation | Your reply |
+|-----------|-----------|
+| Decision with options A/B/C | Reply: `A`, `B`, or `C` |
+| Manual action completed | Reply: `done` or `DONE` |
+| Approve something | Reply: `approve` or `yes` |
+| Reject something | Reply: `reject` or `no` |
+
+The bot routes these replies before any finance parsing — they will NOT be interpreted as expenses.
+
+If no decision is currently waiting, the bot replies:
+> "No active agent decision is waiting. Use /status to see current state."
 
 ---
 

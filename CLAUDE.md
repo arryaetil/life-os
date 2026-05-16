@@ -76,7 +76,14 @@ Use `scripts/notify_me.py` for high-signal updates:
 See `docs/autonomous-session-protocol.md` for full supervision protocol, response format, and safety rules.
 
 ### Create Handoff Before Stopping
-Always run `python scripts/create_handoff.py` before ending a session or when tokens are running low. This writes `handoff/latest.md`, updates `handoff/start_next_session_prompt.md`, writes state to PostgreSQL, and sends a Telegram notification.
+
+**Completion vs handoff — these are different:**
+
+- **Task complete, session continues** → `python scripts/notify_me.py complete "..."` only.
+- **Update handoff files without Telegram** → `python scripts/create_handoff.py --silent`.
+- **Session ending (tokens low, account switch needed)** → `python scripts/create_handoff.py` — writes files AND sends "session handoff needed" Telegram notification.
+
+Never run `create_handoff.py` (without `--silent`) after a normal task completion. It sends a disruptive "session handoff needed" notification that is misleading when the session is not actually ending.
 
 ### Never
 - Read, print, or commit `.env` content or secrets via any tool or notification
