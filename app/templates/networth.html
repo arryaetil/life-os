@@ -4,28 +4,27 @@
 <div class="kpi-grid">
 
   <div class="glass-card">
-    <div class="kpi-label">Net Worth</div>
-    {% if latest %}
-    <div class="kpi-value {% if latest.total_net_worth >= 0 %}positive{% else %}danger{% endif %}">
-      {{ latest.total_net_worth | format_currency }}
+    <div class="kpi-label">Net Worth (Live)</div>
+    <div class="kpi-value {% if live_nw >= 0 %}positive{% else %}danger{% endif %}">
+      {{ live_nw | format_currency }}
     </div>
-    <div class="kpi-sub">as of {{ latest.timestamp[:10] }}</div>
+    {% if latest %}
+    <div class="kpi-sub">baseline {{ latest.timestamp[:10] }}: {{ latest.total_net_worth | format_currency }}</div>
     {% else %}
-    <div class="kpi-value" style="color: var(--text-secondary);">—</div>
     <div class="kpi-sub">No data yet</div>
     {% endif %}
   </div>
 
   <div class="glass-card">
-    <div class="kpi-label">Change</div>
-    {% if change %}
-    <div class="kpi-value {% if change.delta >= 0 %}positive{% else %}danger{% endif %}">
-      {% if change.delta >= 0 %}+{% endif %}{{ change.delta | format_currency }}
+    <div class="kpi-label">Monthly Net Worth Change</div>
+    {% if monthly_change %}
+    <div class="kpi-value {% if monthly_change.delta >= 0 %}positive{% else %}danger{% endif %}">
+      {% if monthly_change.delta >= 0 %}+{% endif %}{{ monthly_change.delta | format_currency }}
     </div>
-    <div class="kpi-sub">since last snapshot</div>
+    <div class="kpi-sub">vs start of this month</div>
     {% else %}
     <div class="kpi-value" style="color: var(--text-secondary);">—</div>
-    <div class="kpi-sub">Need 2+ snapshots</div>
+    <div class="kpi-sub">Insufficient history</div>
     {% endif %}
   </div>
 
@@ -54,7 +53,7 @@
 {% if latest %}
 
 <div class="glass-card" style="margin-bottom: 20px;">
-  <div class="section-header">Asset Allocation</div>
+  <div class="section-header">Asset Breakdown (Baseline)</div>
   {% if allocation %}
     {% for a in allocation %}
     <div class="cat-row">
@@ -75,7 +74,7 @@
 
 <div class="glass-card" style="margin-bottom: 20px;">
   <div class="section-header">Net Worth Over Time</div>
-  {% if history | length >= 2 %}
+  {% if history | length >= 1 %}
   <div style="position: relative; height: 240px;">
     <canvas id="nwChart"></canvas>
   </div>
@@ -83,13 +82,23 @@
   <script>
     (function() {
       const ctx = document.getElementById('nwChart');
+      const labels = {{ chart_labels | tojson }};
+      const values = {{ chart_values | tojson }};
+      const liveNw = {{ live_nw }};
+      const today = new Date().toISOString().slice(0, 10);
+      if (labels.length === 0 || labels[labels.length - 1] !== today) {
+        labels.push('Live');
+        values.push(liveNw);
+      } else {
+        values[values.length - 1] = liveNw;
+      }
       new Chart(ctx, {
         type: 'line',
         data: {
-          labels: {{ chart_labels | tojson }},
+          labels: labels,
           datasets: [{
             label: 'Net Worth',
-            data: {{ chart_values | tojson }},
+            data: values,
             borderColor: '#3F5AF5',
             backgroundColor: 'rgba(63,90,245,0.08)',
             fill: true,
@@ -110,7 +119,7 @@
               borderColor: 'rgba(255,255,255,0.1)',
               borderWidth: 1,
               callbacks: {
-                label: function(ctx) { return '€' + ctx.parsed.y.toFixed(2); }
+                label: function(ctx) { return '€' + ctx.parsed.y.toLocaleString('en-IE', {minimumFractionDigits: 2}); }
               }
             }
           },
@@ -134,8 +143,8 @@
   </script>
   {% else %}
   <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.7;">
-    Log more snapshots to see your net worth trend.<br>
-    Send via Telegram: <code style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;">net worth cash 2000 investments 5000</code>
+    Log a snapshot to see your net worth trend.<br>
+    Send via Telegram: <code style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;">net worth 15000</code>
   </p>
   {% endif %}
 </div>
@@ -174,8 +183,8 @@
   <div class="section-header">No Net Worth Data Yet</div>
   <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.9;">
     Log your first snapshot via Telegram:<br><br>
-    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth cash 2000 investments 5000 savings 3000</code><br>
-    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth cash 2k savings 5k investments 10k</code><br><br>
+    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth 15000</code><br>
+    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth cash 2000 investments 5000 savings 3000</code><br><br>
     Or send <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">/networth</code> to the bot.
   </p>
 </div>
