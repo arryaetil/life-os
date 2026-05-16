@@ -58,3 +58,75 @@ def test_read_by_type_returns_none_when_no_match():
     db.write_agent_state({"status_type": "progress"})
     state = db.read_latest_agent_state(status_type="handoff")
     assert state is None
+
+
+def test_read_pending_action_returns_none_when_empty():
+    assert db.read_pending_action() is None
+
+
+def test_read_pending_action_returns_none_when_resolved():
+    db.write_agent_state({
+        "status_type": "decision",
+        "requires_user_action": True,
+        "resolved": True,
+    })
+    assert db.read_pending_action() is None
+
+
+def test_read_pending_action_returns_latest_unresolved():
+    db.write_agent_state({
+        "status_type": "decision",
+        "requires_user_action": True,
+        "resolved": False,
+        "progress_message": "first question",
+    })
+    db.write_agent_state({
+        "status_type": "manual_action",
+        "requires_user_action": True,
+        "resolved": False,
+        "progress_message": "second question",
+    })
+    result = db.read_pending_action()
+    assert result is not None
+    assert result["progress_message"] == "second question"
+
+
+def test_read_pending_action_ignores_progress_rows():
+    db.write_agent_state({
+        "status_type": "progress",
+        "requires_user_action": False,
+        "resolved": False,
+    })
+    assert db.read_pending_action() is None
+
+
+def test_resolve_agent_state_marks_row_resolved():
+    db.write_agent_state({
+        "status_type": "decision",
+        "requires_user_action": True,
+        "resolved": False,
+    })
+    pending = db.read_pending_action()
+    assert pending is not None
+    db.resolve_agent_state(pending["id"])
+    assert db.read_pending_action() is None
+
+
+def test_resolve_agent_state_only_affects_target_row():
+    db.write_agent_state({
+        "status_type": "decision",
+        "requires_user_action": True,
+        "resolved": False,
+        "progress_message": "first",
+    })
+    db.write_agent_state({
+        "status_type": "manual_action",
+        "requires_user_action": True,
+        "resolved": False,
+        "progress_message": "second",
+    })
+    first = db.read_latest_agent_state(status_type="decision")
+    db.resolve_agent_state(first["id"])
+    still_pending = db.read_pending_action()
+    assert still_pending is not None
+    assert still_pending["progress_message"] == "second"

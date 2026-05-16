@@ -187,3 +187,35 @@ def get_net_worth_history(limit: int = 30) -> list[dict]:
         )
         rows = [dict(row._mapping) for row in result]
         return list(reversed(rows))
+
+
+_PENDING_ACTION_TYPES = ("decision", "manual_action", "error", "handoff")
+
+
+def read_pending_action() -> dict | None:
+    """Return the latest unresolved agent_state row that requires user action."""
+    with _engine.connect() as conn:
+        q = (
+            select(agent_state)
+            .where(
+                agent_state.c.requires_user_action == True,
+                agent_state.c.resolved == False,
+                agent_state.c.status_type.in_(_PENDING_ACTION_TYPES),
+            )
+            .order_by(desc(agent_state.c.id))
+            .limit(1)
+        )
+        result = conn.execute(q)
+        row = result.fetchone()
+        return dict(row._mapping) if row else None
+
+
+def resolve_agent_state(state_id: int) -> None:
+    """Mark a specific agent_state row as resolved=True."""
+    with _engine.connect() as conn:
+        conn.execute(
+            update(agent_state)
+            .where(agent_state.c.id == state_id)
+            .values(resolved=True)
+        )
+        conn.commit()
