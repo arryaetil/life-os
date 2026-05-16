@@ -76,6 +76,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         return
 
+    # AI requested clarification (low confidence or missing amount)
+    if parsed.get("needs_clarification"):
+        await update.message.reply_text(
+            parsed.get("clarification_question") or
+            "Could you be more specific?\n\n"
+            "• Log an expense: `14 kebab` or `8,50 koffie`\n"
+            "• Income: `+314 DUO` or `150 gekregen van oom`"
+        )
+        return
+
     category = parsed.get("category") or get_category(parsed["description"])
     sheets.append_transaction(parsed, category)
     transactions = sheets.get_all_transactions()

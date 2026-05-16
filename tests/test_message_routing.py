@@ -153,3 +153,21 @@ async def test_unknown_intent_asks_for_clarification():
     reply = update.message.reply_text.call_args[0][0]
     assert "clarify" in reply.lower() or "not sure" in reply.lower()
     assert "couldn't find an amount" not in reply
+
+
+async def test_ambiguous_message_sends_clarification_question():
+    from app.commands import handle_message
+    update = _make_update("iets vaags")
+    clarification_result = {
+        "needs_clarification": True,
+        "clarification_question": "How much did you spend?",
+        "timestamp": "2026-05-16 14:00:00",
+        "date": "2026-05-16",
+        "week_start": "2026-05-13",
+        "month": "2026-05",
+    }
+    with patch("app.commands.parse_message", return_value=clarification_result), \
+         patch("app.commands.classify_intent", return_value="finance_transaction"):
+        await handle_message(update, MagicMock())
+    reply = update.message.reply_text.call_args[0][0]
+    assert "How much" in reply
