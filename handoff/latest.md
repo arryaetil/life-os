@@ -1,4 +1,4 @@
-# Handoff — 2026-05-16 10:46 UTC
+# Handoff — 2026-05-16 11:09 UTC
 
 ## What Was Done
 - Session ended. See recent commits below.
@@ -11,14 +11,15 @@
 ?? Untitled.canvas
 ?? docs/superpowers/plans/2026-05-15-module-1-1-net-worth.md
 ?? docs/superpowers/plans/2026-05-15-module-1-1-refinements.md
+?? docs/superpowers/plans/2026-05-16-agent-control-ux-bugs.md
 ?? docs/superpowers/plans/2026-05-16-autonomous-session-protocol.md
 
 ## Recent Commits
-b608896 docs(1.4): update CLAUDE.md and Operating_Rules with supervision protocol v1
-6f564cf docs(1.4): add autonomous session protocol v1
-743f58b feat(1.4): add ask_user.py — structured decision notifications with options and recommendation
-9fcba76 feat(1.4): improve decision notification format — Options header, A/B/C reply prompt
-1d78804 docs(1.1): update status and handoff after refinements — live NW, monthly change, 30K goal
+dae8f6d docs(1.4): document completion vs handoff distinction and agent reply routing
+b77e441 fix(1.4): route agent replies before finance parsing — A/B/C/DONE no longer trigger expense parser
+5a97c17 fix(1.4): add --silent flag to create_handoff.py — writes files without Telegram notification
+8d95ce9 feat(1.4): add read_pending_action and resolve_agent_state to database
+ac7aac3 feat(1.4): add agent_control.is_agent_reply — detects A/B/C/DONE/yes/no/etc
 
 ## Current State
 Session handoff triggered. Review git log and docs/current-status.md for full picture.
