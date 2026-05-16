@@ -61,7 +61,9 @@ def _format_message(status_type: str, message: str, options: list[str]) -> str:
     if status_type == "progress":
         return f"✅ Progress: {message}"
     if status_type == "decision":
-        lines = ["🤔 Decision needed:", message] + options + ["Reply with your choice."]
+        lines = ["🤔 Decision needed:", message, "", "Options:"]
+        lines.extend(options)
+        lines += ["", "Reply with A/B/C."]
         return "\n".join(lines)
     if status_type == "manual_action":
         return f"🔧 Manual action needed:\n{message}\nReply DONE when complete."

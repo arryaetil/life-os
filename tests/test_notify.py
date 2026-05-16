@@ -16,9 +16,11 @@ def test_decision_format():
     result = _format_message("decision", "Choose DB", ["A: PostgreSQL", "B: Supabase"])
     assert "🤔 Decision needed:" in result
     assert "Choose DB" in result
+    assert "Options:" in result
     assert "A: PostgreSQL" in result
     assert "B: Supabase" in result
-    assert "Reply with your choice." in result
+    assert "Reply with A/B/C." in result
+    assert "Reply with your choice." not in result
 
 
 def test_action_format():
