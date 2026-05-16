@@ -1,5 +1,6 @@
+from datetime import date
+
 GOALS = [
-    {"label": "€25K", "target": 25_000.0},
     {"label": "€30K", "target": 30_000.0},
 ]
 
@@ -15,6 +16,23 @@ def calculate_net_worth(snapshot: dict) -> float:
     )
 
 
+def calculate_live_net_worth(baseline: dict | None, transactions: list[dict]) -> float:
+    if baseline is None:
+        return 0.0
+    baseline_ts = baseline["timestamp"]
+    net = float(baseline["total_net_worth"])
+    for t in transactions:
+        if t.get("timestamp", "") <= baseline_ts:
+            continue
+        if "[UNDONE]" in (t.get("notes") or ""):
+            continue
+        if t["type"] == "Income":
+            net += float(t["amount"])
+        elif t["type"] == "Expense":
+            net -= float(t["amount"])
+    return round(net, 2)
+
+
 def calculate_goal_progress(current: float, target: float) -> dict:
     pct = min(100.0, (current / target * 100.0) if target > 0 else 0.0)
     remaining = max(0.0, target - current)
@@ -26,7 +44,23 @@ def calculate_goal_progress(current: float, target: float) -> dict:
     }
 
 
+def calculate_monthly_change(
+    current_nw: float,
+    history: list[dict],
+    reference_month: str | None = None,
+) -> dict | None:
+    if reference_month is None:
+        reference_month = date.today().strftime("%Y-%m")
+    pre_month = [s for s in history if s["timestamp"][:7] < reference_month]
+    if not pre_month:
+        return None
+    start_nw = float(pre_month[-1]["total_net_worth"])
+    delta = round(current_nw - start_nw, 2)
+    return {"delta": delta, "direction": "up" if delta >= 0 else "down"}
+
+
 def calculate_change(history: list[dict]) -> dict | None:
+    """Change between last two snapshots. Kept for backward compatibility."""
     if len(history) < 2:
         return None
     prev = history[-2]["total_net_worth"]

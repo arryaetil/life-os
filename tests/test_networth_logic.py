@@ -5,6 +5,8 @@ from app.networth import (
     calculate_change,
     ascii_progress_bar,
     GOALS,
+    calculate_live_net_worth,
+    calculate_monthly_change,
 )
 
 
@@ -93,7 +95,122 @@ def test_ascii_progress_bar_half():
     assert bar == "▓▓▓▓▓░░░░░"
 
 
-def test_goals_has_25k_and_30k():
+# --- calculate_live_net_worth ---
+
+def _make_baseline(total: float, timestamp: str = "2026-05-01T00:00:00+00:00") -> dict:
+    return {"total_net_worth": total, "timestamp": timestamp}
+
+def _make_txn(type_: str, amount: float, ts: str = "2026-05-10T12:00:00+00:00", undone: bool = False) -> dict:
+    return {"type": type_, "amount": amount, "timestamp": ts, "notes": "[UNDONE]" if undone else ""}
+
+
+def test_live_nw_no_transactions():
+    baseline = _make_baseline(15000.0)
+    assert calculate_live_net_worth(baseline, []) == 15000.0
+
+
+def test_live_nw_adds_income():
+    baseline = _make_baseline(15000.0)
+    txns = [_make_txn("Income", 500.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15500.0)
+
+
+def test_live_nw_subtracts_expense():
+    baseline = _make_baseline(15000.0)
+    txns = [_make_txn("Expense", 200.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(14800.0)
+
+
+def test_live_nw_ignores_transfer():
+    baseline = _make_baseline(15000.0)
+    txns = [_make_txn("Transfer", 1000.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15000.0)
+
+
+def test_live_nw_ignores_investment():
+    baseline = _make_baseline(15000.0)
+    txns = [_make_txn("Investment", 500.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15000.0)
+
+
+def test_live_nw_ignores_undone_transactions():
+    baseline = _make_baseline(15000.0)
+    txns = [_make_txn("Income", 500.0, undone=True)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15000.0)
+
+
+def test_live_nw_ignores_transactions_before_baseline():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-10T00:00:00+00:00")
+    txns = [_make_txn("Income", 500.0, ts="2026-05-09T12:00:00+00:00")]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15000.0)
+
+
+def test_live_nw_none_baseline_returns_zero():
+    assert calculate_live_net_worth(None, []) == 0.0
+
+
+def test_live_nw_combined():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Income", 500.0),
+        _make_txn("Expense", 100.0),
+        _make_txn("Transfer", 200.0),  # ignored
+        _make_txn("Income", 300.0, undone=True),  # ignored
+    ]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15400.0)
+
+
+# --- calculate_monthly_change ---
+
+def test_monthly_change_no_pre_month_history():
+    history = [
+        {"timestamp": "2026-05-10T00:00:00+00:00", "total_net_worth": 15000.0},
+    ]
+    result = calculate_monthly_change(15500.0, history, reference_month="2026-05")
+    assert result is None
+
+
+def test_monthly_change_empty_history():
+    assert calculate_monthly_change(15500.0, [], reference_month="2026-05") is None
+
+
+def test_monthly_change_positive_delta():
+    history = [
+        {"timestamp": "2026-04-30T00:00:00+00:00", "total_net_worth": 14000.0},
+        {"timestamp": "2026-05-10T00:00:00+00:00", "total_net_worth": 15000.0},
+    ]
+    result = calculate_monthly_change(15500.0, history, reference_month="2026-05")
+    assert result is not None
+    assert result["delta"] == pytest.approx(1500.0)
+    assert result["direction"] == "up"
+
+
+def test_monthly_change_negative_delta():
+    history = [
+        {"timestamp": "2026-04-30T00:00:00+00:00", "total_net_worth": 16000.0},
+    ]
+    result = calculate_monthly_change(15500.0, history, reference_month="2026-05")
+    assert result is not None
+    assert result["delta"] == pytest.approx(-500.0)
+    assert result["direction"] == "down"
+
+
+def test_monthly_change_uses_latest_pre_month_snapshot():
+    history = [
+        {"timestamp": "2026-03-15T00:00:00+00:00", "total_net_worth": 12000.0},
+        {"timestamp": "2026-04-28T00:00:00+00:00", "total_net_worth": 14000.0},
+    ]
+    result = calculate_monthly_change(15000.0, history, reference_month="2026-05")
+    assert result["delta"] == pytest.approx(1000.0)  # 15000 - 14000
+
+
+# --- GOALS updated to €30K only ---
+
+def test_goals_has_only_30k():
     targets = {g["target"] for g in GOALS}
-    assert 25_000.0 in targets
     assert 30_000.0 in targets
+    assert 25_000.0 not in targets
+
+
+def test_goals_length_is_one():
+    assert len(GOALS) == 1

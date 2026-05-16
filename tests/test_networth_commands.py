@@ -61,14 +61,14 @@ async def test_cmd_networth_history_shows_entries():
     assert "14000.00" in text
 
 
-async def test_cmd_goal_shows_25k_and_30k():
+async def test_cmd_goal_shows_30k():
     from app.commands import cmd_goal
     update = _make_update()
     with patch("app.database.get_latest_net_worth_snapshot", return_value=SNAPSHOT):
         await cmd_goal(update, MagicMock())
     text = update.message.reply_text.call_args[0][0]
-    assert "25K" in text or "25k" in text
     assert "30K" in text or "30k" in text
+    assert "25K" not in text and "25k" not in text
 
 
 async def test_cmd_goal_no_data():
