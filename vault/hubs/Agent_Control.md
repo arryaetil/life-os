@@ -70,6 +70,32 @@ When Claude's session nears token limit:
 
 ---
 
+## Conversational AI Layer (v1)
+
+The bot handles four intents via `app/intent_classifier.py` + `app/ai_agent.py`:
+
+**Routing priority in `handle_message`:**
+1. Agent-control reply (A/B/C/DONE/yes/no) → resolve pending decision
+2. Net worth update (NW keywords + amount) → save snapshot
+3. `classify_intent()` → lifeos_question / action_request / finance_transaction / unknown
+
+**LifeOS questions** → `app/ai_agent.answer_lifeos_question()`
+- Loads compressed vault context pack (`app/vault_context.py`, max 8000 chars)
+- Injects live financial data if question is finance-related
+- Calls OpenAI GPT-4o-mini; graceful fallback if no key
+
+**Action requests** → `app/ai_agent.propose_action()`
+- Returns a proposal — never executes directly
+- Asks for A/B confirmation
+- Stores pending decision in `agent_state`
+
+**Context pack files** (loaded by `app/vault_context.py`):
+CLAUDE.md, vault/context/LifeOS.md, Current_Priorities.md, User_Profile.md,
+vault/hubs/Architecture.md, Finance.md, Agent_Control.md,
+vault/projects/finance-lifeos.md, vault/sessions/recent-sessions.md, handoff/latest.md
+
+---
+
 ## What's Left to Build
 
 - `/resolve` command as an alternative to inline reply routing (optional)

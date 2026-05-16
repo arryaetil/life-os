@@ -9,6 +9,8 @@ Telegram bot + web dashboard for logging personal expenses and income. Send a na
 Send anything natural to your bot → AI parses it → logged to database → budget status reply.
 Open the dashboard → reads database → shows spending overview.
 
+The bot also supports natural language conversations powered by OpenAI, answering questions about LifeOS using vault context and proposing actions for user approval.
+
 ## Message Format
 
 Just write naturally — the AI figures it out:

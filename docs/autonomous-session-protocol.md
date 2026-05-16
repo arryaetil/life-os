@@ -211,3 +211,12 @@ These cannot be done remotely via Telegram and require returning to the laptop:
 - **No secrets in notifications.** Never include API keys, tokens, or `.env` content in any Telegram message.
 - **No file deletion** without explicit user approval in the task prompt.
 - **No transactions table schema changes.** Ever.
+
+---
+
+## AI Responses During Autonomous Sessions
+
+When you send a natural question to the bot during an autonomous session, it answers using the current vault context. This does not interrupt Claude's work — Claude only receives replies to structured decision/manual action notifications.
+
+To ask LifeOS a question: just type it to the bot.
+To request an action: describe it, then reply `A` to approve or `B` to cancel.

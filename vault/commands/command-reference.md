@@ -26,7 +26,7 @@ All commands are owner-only (gated by `TELEGRAM_OWNER_CHAT_ID`).
 |---------|-------------|
 | `/networth` | Latest snapshot with full breakdown |
 | `/networth_history` | Last 5 snapshots with running delta |
-| `/goal` | €25K and €30K goal progress with ASCII bars |
+| `/goal` | €30K goal progress with ASCII bar |
 
 ### Agent Control (Module 1.4)
 
@@ -39,10 +39,31 @@ All commands are owner-only (gated by `TELEGRAM_OWNER_CHAT_ID`).
 
 ### Natural Language
 
-Send any natural message to log a transaction:
+The bot understands three types of natural language input:
+
+**Finance transactions** — include an amount:
 - `14 kebab` → €14 expense, Food
 - `+500 salary` → €500 income
 - `net worth cash 2k investments 8k` → net worth snapshot
+
+**Conversational questions** — answered using vault context + live data:
+- `What is LifeOS right now?`
+- `What should we build next?`
+- `What was done last session?`
+- `How close am I to my 30K goal?`
+- `What is my current net worth?`
+- `How does the net worth tracker work?`
+
+**Action requests** — proposed for approval, not executed immediately:
+- `Build the next module`
+- `Prepare handoff`
+- `Run tests`
+- After proposal, reply `A` to approve or `B` to cancel.
+
+**Agent-control replies** (exact token, case-insensitive):
+- `A`, `B`, `C`, `D` — decision choice
+- `done` / `DONE` — manual action complete
+- `yes` / `no` / `approve` / `reject` / `continue` / `stop`
 
 ---
 

@@ -83,3 +83,21 @@ Complex features span multiple sessions. Without handoff:
 **Auth on dashboard** — currently unprotected. Add HTTP Basic Auth before sharing URL publicly.
 
 **MCP integrations** — considered for future agent capabilities; not in scope until Module 4.
+
+---
+
+## AI Agent Layer (v1)
+
+```
+Telegram message
+  → owner auth check
+  → is_agent_reply? → resolve pending decision
+  → is_net_worth_message? → save snapshot
+  → classify_intent() →
+      lifeos_question → ai_agent.answer_lifeos_question() → vault context + OpenAI
+      action_request  → ai_agent.propose_action() → vault context + OpenAI + pending decision
+      finance/unknown → parse_message() → DB insert or clarification
+```
+
+Context source: `app/vault_context.py` loads fixed vault file pack (max 8000 chars) on each AI call.
+No RAG, no vectors in v1.
