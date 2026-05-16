@@ -19,10 +19,12 @@ def calculate_net_worth(snapshot: dict) -> float:
 def calculate_live_net_worth(baseline: dict | None, transactions: list[dict]) -> float:
     if baseline is None:
         return 0.0
-    baseline_ts = baseline["timestamp"]
+    # Normalize separator: parse_message uses space, snapshots use T (ISO).
+    # Space (0x20) < T (0x54) so without normalization all transactions are skipped.
+    baseline_ts = baseline["timestamp"].replace(" ", "T")
     net = float(baseline["total_net_worth"])
     for t in transactions:
-        if t.get("timestamp", "") <= baseline_ts:
+        if t.get("timestamp", "").replace(" ", "T") <= baseline_ts:
             continue
         if "[UNDONE]" in (t.get("notes") or ""):
             continue

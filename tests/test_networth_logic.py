@@ -224,3 +224,49 @@ def test_monthly_change_unsorted_history_uses_latest():
     ]
     result = calculate_monthly_change(15000.0, history, reference_month="2026-05")
     assert result["delta"] == pytest.approx(1000.0)  # 15000 - 14000, not 15000 - 12000
+
+
+# --- space-format timestamp tests (production format from parse_message) ---
+
+def _make_txn_prod(type_: str, amount: float, ts: str = "2026-05-16 14:00:00") -> dict:
+    """Transaction with space-format timestamp exactly as parse_message generates it."""
+    return {"type": type_, "amount": amount, "timestamp": ts, "notes": ""}
+
+
+def test_live_nw_expense_reduces_nw_with_prod_timestamps():
+    """baseline 15000 + expense 10 = 14990 (space-format timestamps from parse_message)."""
+    baseline = {"total_net_worth": 15000.0, "timestamp": "2026-05-16T10:23:40.072485+00:00"}
+    txns = [_make_txn_prod("Expense", 10.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(14990.0)
+
+
+def test_live_nw_income_increases_nw_with_prod_timestamps():
+    """baseline 15000 + income 100 = 15100 (space-format timestamps from parse_message)."""
+    baseline = {"total_net_worth": 15000.0, "timestamp": "2026-05-16T10:23:40.072485+00:00"}
+    txns = [_make_txn_prod("Income", 100.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15100.0)
+
+
+def test_live_nw_combined_prod_timestamps():
+    """baseline 15000 + income 100 - expense 10 = 15090."""
+    baseline = {"total_net_worth": 15000.0, "timestamp": "2026-05-16T10:23:40.072485+00:00"}
+    txns = [
+        _make_txn_prod("Income", 100.0),
+        _make_txn_prod("Expense", 10.0),
+    ]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15090.0)
+
+
+def test_live_nw_transfer_ignored_with_prod_timestamps():
+    """Transfers must not affect net worth even with space-format timestamps."""
+    baseline = {"total_net_worth": 15000.0, "timestamp": "2026-05-16T10:23:40.072485+00:00"}
+    txns = [_make_txn_prod("Transfer", 500.0), _make_txn_prod("Investment", 200.0)]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15000.0)
+
+
+def test_live_nw_prod_ts_before_baseline_skipped():
+    """Transactions with space-format timestamps before the baseline must be skipped."""
+    baseline = {"total_net_worth": 15000.0, "timestamp": "2026-05-16T14:00:00+00:00"}
+    # Transaction at 13:00 local = before 14:00 UTC baseline
+    txns = [_make_txn_prod("Expense", 50.0, ts="2026-05-16 13:00:00")]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15000.0)
