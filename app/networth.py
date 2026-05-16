@@ -51,7 +51,10 @@ def calculate_monthly_change(
 ) -> dict | None:
     if reference_month is None:
         reference_month = date.today().strftime("%Y-%m")
-    pre_month = [s for s in history if s["timestamp"][:7] < reference_month]
+    pre_month = sorted(
+        [s for s in history if s["timestamp"][:7] < reference_month],
+        key=lambda s: s["timestamp"],
+    )
     if not pre_month:
         return None
     start_nw = float(pre_month[-1]["total_net_worth"])

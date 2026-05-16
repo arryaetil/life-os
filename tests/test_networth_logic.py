@@ -214,3 +214,13 @@ def test_goals_has_only_30k():
 
 def test_goals_length_is_one():
     assert len(GOALS) == 1
+
+
+def test_monthly_change_unsorted_history_uses_latest():
+    """History passed newest-first must still use the most recent pre-month snapshot."""
+    history = [
+        {"timestamp": "2026-04-28T00:00:00+00:00", "total_net_worth": 14000.0},
+        {"timestamp": "2026-03-15T00:00:00+00:00", "total_net_worth": 12000.0},
+    ]
+    result = calculate_monthly_change(15000.0, history, reference_month="2026-05")
+    assert result["delta"] == pytest.approx(1000.0)  # 15000 - 14000, not 15000 - 12000
