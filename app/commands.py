@@ -9,6 +9,7 @@ from app.utils import format_currency
 from app.networth_parser import is_net_worth_message, parse_net_worth_message
 from app.networth import GOALS, calculate_goal_progress, ascii_progress_bar, calculate_live_net_worth
 from app.agent_control import is_agent_reply
+from app.intent_classifier import classify_intent
 
 _log = logging.getLogger(__name__)
 
@@ -32,32 +33,53 @@ async def handle_agent_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
+
+    # Priority 1: agent-control replies (A/B/C/DONE/yes/no/etc.)
     if is_agent_reply(text):
         await handle_agent_reply(update, context, text)
         return
+
+    # Priority 2: net worth snapshot updates
     if is_net_worth_message(text):
         await _handle_net_worth_message(update, context, text)
         return
+
+    # Priority 3: classify remaining intent
+    intent = classify_intent(text)
+
+    if intent == "lifeos_question":
+        await _handle_lifeos_question(update, context, text)
+        return
+
+    if intent == "action_request":
+        await _handle_action_request(update, context, text)
+        return
+
+    # finance_transaction or unknown: attempt finance parse
     try:
         parsed = parse_message(text)
     except ValueError:
-        await update.message.reply_text(
-            "I couldn't find an amount in that message.\n\n"
-            "Try something like:\n"
-            "  14 kebab\n"
-            "  spent 8.50 on coffee\n"
-            "  +314 DUO income"
-        )
+        if intent == "unknown":
+            await update.message.reply_text(
+                "I'm not sure what you mean. Could you clarify?\n\n"
+                "• Log an expense: `14 kebab` or `spent 8.50 coffee`\n"
+                "• Ask a question: `What is my net worth?`\n"
+                "• Agent reply: `A`, `B`, or `done`"
+            )
+        else:
+            await update.message.reply_text(
+                "I couldn't find an amount in that message.\n\n"
+                "Try something like:\n"
+                "  14 kebab\n"
+                "  spent 8.50 on coffee\n"
+                "  +314 DUO income"
+            )
         return
 
-    # Use AI-provided category if available, otherwise keyword/AI fallback
     category = parsed.get("category") or get_category(parsed["description"])
-
     sheets.append_transaction(parsed, category)
-
     transactions = sheets.get_all_transactions()
     status = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)
-
     pct_left = 100 - status["pct_used"]
     if pct_left < 10:
         budget_note = "⚠️ Almost out of budget!"
@@ -65,7 +87,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         budget_note = "Getting close to your limit."
     else:
         budget_note = f"{pct_left:.0f}% of weekly budget left."
-
     reply = (
         f"Got it — {format_currency(parsed['amount'])} on {parsed['description']} ({category}).\n"
         f"Weekly: {format_currency(status['weekly_spent'])} / {format_currency(status['weekly_budget'])}. "
@@ -275,6 +296,46 @@ async def cmd_handoff(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         lines.append(f"Next: {state['next_task']}")
     lines.append("Read handoff/latest.md for full startup prompt.")
     await update.message.reply_text("\n".join(lines))
+
+
+async def _handle_lifeos_question(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    from app.ai_agent import answer_lifeos_question
+    from app import database
+
+    structured = ""
+    finance_kw = {"spend", "spent", "budget", "net worth", "goal", "30k", "money", "worth"}
+    if any(kw in text.lower() for kw in finance_kw):
+        try:
+            snap = database.get_latest_net_worth_snapshot()
+            txns = database.get_all_transactions()
+            live_nw = calculate_live_net_worth(snap, txns)
+            weekly = budget_module.calculate_weekly_status(txns, config.WEEKLY_BUDGET)
+            structured = (
+                f"Live net worth: €{live_nw:,.2f}\n"
+                f"Weekly spend: €{weekly['weekly_spent']:.2f} / €{weekly['weekly_budget']:.2f}\n"
+                f"Goal progress: {live_nw / 30000 * 100:.1f}% toward €30,000"
+            )
+        except Exception:
+            pass
+
+    await update.message.reply_text("🤔 Let me check the vault...")
+    answer = answer_lifeos_question(text, structured)
+    await update.message.reply_text(answer)
+
+
+async def _handle_action_request(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    from app.ai_agent import propose_action
+    from app import database
+
+    proposal = propose_action(text)
+    database.write_agent_state({
+        "status_type": "decision",
+        "severity": "warning",
+        "requires_user_action": True,
+        "resolved": False,
+        "progress_message": f"Action requested: {text}",
+    })
+    await update.message.reply_text(proposal)
 
 
 async def _handle_net_worth_message(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:

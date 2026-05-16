@@ -116,3 +116,40 @@ async def test_c_reply_with_pending_error_state_resolves():
          patch("app.database.resolve_agent_state") as mock_resolve:
         await handle_message(update, MagicMock())
     mock_resolve.assert_called_once_with(99)
+
+
+async def test_lifeos_question_answered_by_ai_not_expense_parser():
+    from app.commands import handle_message
+    update = _make_update("What is my net worth?")
+    with patch("app.intent_classifier.classify_intent", return_value="lifeos_question"), \
+         patch("app.ai_agent.answer_lifeos_question", return_value="Your net worth is €15,000."), \
+         patch("app.database.get_latest_net_worth_snapshot", return_value=None), \
+         patch("app.database.get_all_transactions", return_value=[]):
+        await handle_message(update, MagicMock())
+    calls = [c[0][0] for c in update.message.reply_text.call_args_list]
+    assert any("€15,000" in r or "net worth" in r.lower() for r in calls)
+    assert all("couldn't find an amount" not in r for r in calls)
+
+
+async def test_action_request_proposes_and_stores_pending_decision():
+    from app.commands import handle_message
+    update = _make_update("Build the next module")
+    with patch("app.intent_classifier.classify_intent", return_value="action_request"), \
+         patch("app.ai_agent.propose_action", return_value="I propose to build Module 1.2. Reply A to approve or B to cancel."), \
+         patch("app.database.write_agent_state") as mock_write:
+        await handle_message(update, MagicMock())
+    reply = update.message.reply_text.call_args[0][0]
+    assert "Module 1.2" in reply or "propose" in reply.lower()
+    assert "Reply A" in reply or "A to approve" in reply
+    mock_write.assert_called_once()
+
+
+async def test_unknown_intent_asks_for_clarification():
+    from app.commands import handle_message
+    update = _make_update("hello there")
+    with patch("app.intent_classifier.classify_intent", return_value="unknown"), \
+         patch("app.parser.parse_message", side_effect=ValueError("no amount")):
+        await handle_message(update, MagicMock())
+    reply = update.message.reply_text.call_args[0][0]
+    assert "clarify" in reply.lower() or "not sure" in reply.lower()
+    assert "couldn't find an amount" not in reply
