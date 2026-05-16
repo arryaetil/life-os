@@ -87,11 +87,11 @@ async def transactions_page(request: Request):
 async def networth_page(request: Request):
     latest = sheets.get_latest_net_worth_snapshot()
     history = sheets.get_net_worth_history(limit=30)
-    change = nw_module.calculate_change(history)
+    all_transactions = sheets.get_all_transactions()
+    live_nw = nw_module.calculate_live_net_worth(latest, all_transactions)
+    monthly_change = nw_module.calculate_monthly_change(live_nw, history)
     goals = [
-        {**g, **nw_module.calculate_goal_progress(
-            latest["total_net_worth"] if latest else 0.0, g["target"]
-        )}
+        {**g, **nw_module.calculate_goal_progress(live_nw, g["target"])}
         for g in nw_module.GOALS
     ]
     allocation = []
@@ -113,8 +113,9 @@ async def networth_page(request: Request):
     return templates.TemplateResponse(request, "networth.html", {
         "active_page": "networth",
         "latest": latest,
+        "live_nw": live_nw,
         "history": history,
-        "change": change,
+        "monthly_change": monthly_change,
         "goals": goals,
         "allocation": allocation,
         "max_asset": max_asset,
