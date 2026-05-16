@@ -1,10 +1,13 @@
 import pytest
+from datetime import datetime, timedelta
 from app.networth import (
     calculate_net_worth,
     calculate_goal_progress,
     calculate_change,
     ascii_progress_bar,
     GOALS,
+    build_net_worth_activity_feed,
+    build_net_worth_chart_series,
     calculate_live_net_worth,
     calculate_live_net_worth_series,
     calculate_monthly_change,
@@ -209,6 +212,103 @@ def test_live_nw_series_ignores_transactions_before_baseline():
     ]
     series = calculate_live_net_worth_series(baseline, txns)
     assert [p["total_net_worth"] for p in series] == [15000.0, 14900.0]
+
+
+def test_chart_series_keeps_every_point_for_small_dataset():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Expense", 14.0, ts="2026-05-02T12:00:00+00:00"),
+        _make_txn("Expense", 122.0, ts="2026-05-03T12:00:00+00:00"),
+        _make_txn("Income", 314.0, ts="2026-05-04T12:00:00+00:00"),
+    ]
+    series = build_net_worth_chart_series(baseline, txns)
+    assert [p["total_net_worth"] for p in series] == [15000.0, 14986.0, 14864.0, 15178.0]
+
+
+def test_chart_series_daily_bucket_for_large_short_range_uses_period_end_values():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = []
+    start = datetime.fromisoformat("2026-05-02T08:00:00")
+    for i in range(61):
+        ts = start + timedelta(days=i // 2, hours=i % 2)
+        txns.append(_make_txn("Expense", 1.0, ts=f"{ts.isoformat()}+00:00"))
+    series = build_net_worth_chart_series(baseline, txns)
+    assert len(series) < 62
+    assert series[0]["total_net_worth"] == pytest.approx(15000.0)
+    assert series[1]["label"] == "2026-05-02"
+    assert series[1]["total_net_worth"] == pytest.approx(14998.0)
+    assert series[-1]["total_net_worth"] == pytest.approx(14939.0)
+
+
+def test_chart_series_weekly_bucket_for_medium_range():
+    baseline = _make_baseline(15000.0, timestamp="2026-01-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Expense", 1.0, ts=f"2026-03-{day:02d}T12:00:00+00:00")
+        for day in range(1, 32)
+    ] + [
+        _make_txn("Expense", 1.0, ts=f"2026-04-{day:02d}T12:00:00+00:00")
+        for day in range(1, 31)
+    ]
+    series = build_net_worth_chart_series(baseline, txns)
+    assert len(series) < 62
+    assert all(p.get("bucket") == "week" for p in series)
+    assert series[-1]["total_net_worth"] == pytest.approx(14939.0)
+
+
+def test_chart_series_monthly_bucket_for_long_range():
+    baseline = _make_baseline(15000.0, timestamp="2025-01-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Expense", 1.0, ts=f"2026-03-{day:02d}T12:00:00+00:00")
+        for day in range(1, 32)
+    ] + [
+        _make_txn("Expense", 1.0, ts=f"2026-04-{day:02d}T12:00:00+00:00")
+        for day in range(1, 31)
+    ]
+    series = build_net_worth_chart_series(baseline, txns)
+    assert all(p.get("bucket") == "month" for p in series)
+    assert [p["label"] for p in series] == ["2025-01", "2026-03", "2026-04"]
+    assert series[-1]["total_net_worth"] == pytest.approx(14939.0)
+
+
+def test_chart_series_range_30d_filters_old_points():
+    baseline = _make_baseline(15000.0, timestamp="2026-01-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Expense", 100.0, ts="2026-02-01T12:00:00+00:00"),
+        _make_txn("Expense", 20.0, ts="2026-05-01T12:00:00+00:00"),
+    ]
+    series = build_net_worth_chart_series(
+        baseline,
+        txns,
+        chart_range="30D",
+        now=datetime.fromisoformat("2026-05-16T00:00:00"),
+    )
+    assert [p["total_net_worth"] for p in series] == [14880.0]
+
+
+def test_activity_feed_includes_baseline_income_and_expense_newest_first():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = [
+        {"id": 1, "type": "Expense", "amount": 14.0, "timestamp": "2026-05-02T12:00:00+00:00", "notes": "", "description": "kebab"},
+        {"id": 2, "type": "Income", "amount": 314.0, "timestamp": "2026-05-03T12:00:00+00:00", "notes": "", "description": "duo"},
+    ]
+    feed = build_net_worth_activity_feed(baseline, txns)
+    assert [event["event_type"] for event in feed] == ["income", "expense", "baseline"]
+    assert [event["impact"] for event in feed[:2]] == [314.0, -14.0]
+    assert feed[-1]["amount"] == pytest.approx(15000.0)
+    assert feed[-1]["impact"] is None
+
+
+def test_activity_feed_ignores_non_net_worth_transaction_types_and_undone():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Transfer", 1000.0, ts="2026-05-02T12:00:00+00:00"),
+        _make_txn("Investment", 500.0, ts="2026-05-03T12:00:00+00:00"),
+        _make_txn("Expense", 25.0, ts="2026-05-04T12:00:00+00:00", undone=True),
+        _make_txn("Expense", 40.0, ts="2026-05-05T12:00:00+00:00"),
+    ]
+    feed = build_net_worth_activity_feed(baseline, txns)
+    assert [event["event_type"] for event in feed] == ["expense", "baseline"]
+    assert feed[0]["impact"] == pytest.approx(-40.0)
 
 
 # --- calculate_monthly_change ---

@@ -48,12 +48,16 @@ async def webhook(request: Request) -> Response:
 
 @app.get("/")
 async def home(request: Request):
+    return await financials_page(request)
+
+@app.get("/expenses")
+async def expenses_page(request: Request):
     transactions = sheets.get_all_transactions()
     weekly = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)
     monthly = budget_module.calculate_monthly_summary(transactions)
     recent = list(reversed(transactions))[:10]
     return templates.TemplateResponse(request, "dashboard.html", {
-        "active_page": "home",
+        "active_page": "expenses",
         "weekly": weekly,
         "monthly": monthly,
         "recent_transactions": recent,
@@ -83,13 +87,21 @@ async def transactions_page(request: Request):
         "transactions": list(reversed(transactions)),
     })
 
-@app.get("/networth")
-async def networth_page(request: Request):
+@app.get("/financials")
+async def financials_page(request: Request):
     latest = sheets.get_latest_net_worth_snapshot()
     history = sheets.get_net_worth_history(limit=30)
     all_transactions = sheets.get_all_transactions()
-    chart_series = nw_module.calculate_live_net_worth_series(latest, all_transactions)
-    live_nw = chart_series[-1]["total_net_worth"] if chart_series else 0.0
+    monthly = budget_module.calculate_monthly_summary(all_transactions)
+    selected_range = request.query_params.get("range", "ALL").upper()
+    if selected_range not in nw_module.CHART_RANGES:
+        selected_range = "ALL"
+    live_nw = nw_module.calculate_live_net_worth(latest, all_transactions)
+    chart_series = nw_module.build_net_worth_chart_series(
+        latest,
+        all_transactions,
+        chart_range=selected_range,
+    )
     monthly_change = nw_module.calculate_monthly_change(live_nw, history)
     goals = [
         {**g, **nw_module.calculate_goal_progress(live_nw, g["target"])}
@@ -111,15 +123,24 @@ async def networth_page(request: Request):
         max_asset = max(pos_amounts) if pos_amounts else 1.0
     chart_labels = [s["label"] for s in chart_series]
     chart_values = [s["total_net_worth"] for s in chart_series]
+    activity_feed = nw_module.build_net_worth_activity_feed(latest, all_transactions)
     return templates.TemplateResponse(request, "networth.html", {
-        "active_page": "networth",
+        "active_page": "financials",
         "latest": latest,
         "live_nw": live_nw,
         "history": history,
+        "monthly": monthly,
         "monthly_change": monthly_change,
         "goals": goals,
         "allocation": allocation,
         "max_asset": max_asset,
         "chart_labels": chart_labels,
         "chart_values": chart_values,
+        "chart_ranges": nw_module.CHART_RANGES,
+        "selected_range": selected_range,
+        "activity_feed": activity_feed,
     })
+
+@app.get("/networth")
+async def networth_page(request: Request):
+    return await financials_page(request)

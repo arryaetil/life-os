@@ -231,3 +231,100 @@ nav a.active { color: var(--text-primary); background: rgba(63,90,245,0.18); }
 .progress-fill.positive { background: var(--success); }
 .cat-fill.danger-fill   { background: var(--danger); }
 .danger                 { color: var(--danger); }
+
+.activity-feed {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.activity-item {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.activity-item:last-child { border-bottom: none; }
+
+.activity-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: rgba(63,90,245,0.12);
+  color: var(--brand-blue);
+  border: 1px solid rgba(63,90,245,0.20);
+}
+
+.activity-icon.income {
+  background: rgba(16,185,129,0.12);
+  color: var(--success);
+  border-color: rgba(16,185,129,0.22);
+}
+
+.activity-icon.expense {
+  background: rgba(239,68,68,0.12);
+  color: var(--danger);
+  border-color: rgba(239,68,68,0.22);
+}
+
+.activity-topline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.activity-type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.activity-time {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+}
+
+.activity-description {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.activity-amount {
+  min-width: 110px;
+  text-align: right;
+}
+
+.activity-impact {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.activity-impact.positive { color: var(--success); }
+.activity-impact.danger   { color: var(--danger); }
+.activity-impact.neutral  { color: var(--brand-blue); }
+
+.activity-value {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .activity-item {
+    grid-template-columns: 30px 1fr;
+  }
+  .activity-amount {
+    grid-column: 2;
+    min-width: 0;
+    text-align: left;
+  }
+}

@@ -28,6 +28,14 @@
     {% endif %}
   </div>
 
+  <div class="glass-card">
+    <div class="kpi-label">Monthly Cash Flow</div>
+    <div class="kpi-value {% if monthly.net_cashflow >= 0 %}positive{% else %}danger{% endif %}">
+      {{ monthly.net_cashflow | format_currency }}
+    </div>
+    <div class="kpi-sub">{{ monthly.month }} income minus expenses</div>
+  </div>
+
   {% for goal in goals %}
   <div class="glass-card">
     <div class="kpi-label">Goal {{ goal.label }}</div>
@@ -73,8 +81,18 @@
 </div>
 
 <div class="glass-card" style="margin-bottom: 20px;">
-  <div class="section-header">Net Worth Over Time</div>
-  {% if history | length >= 1 %}
+  <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <span>Net Worth Over Time</span>
+    <span style="display:flex;gap:6px;align-items:center;">
+      {% for r in chart_ranges %}
+      <a href="/financials?range={{ r }}"
+         style="font-size:12px;padding:5px 9px;border-radius:6px;text-decoration:none;border:1px solid rgba(255,255,255,0.12);color:{% if selected_range == r %}#fff{% else %}var(--text-secondary){% endif %};background:{% if selected_range == r %}rgba(63,90,245,0.35){% else %}rgba(255,255,255,0.04){% endif %};">
+        {{ r }}
+      </a>
+      {% endfor %}
+    </span>
+  </div>
+  {% if chart_values | length >= 1 %}
   <div style="position: relative; height: 240px;">
     <canvas id="nwChart"></canvas>
   </div>
@@ -84,14 +102,6 @@
       const ctx = document.getElementById('nwChart');
       const labels = {{ chart_labels | tojson }};
       const values = {{ chart_values | tojson }};
-      const liveNw = {{ live_nw }};
-      const today = new Date().toISOString().slice(0, 10);
-      if (labels.length === 0 || labels[labels.length - 1] !== today) {
-        labels.push('Live');
-        values.push(liveNw);
-      } else {
-        values[values.length - 1] = liveNw;
-      }
       new Chart(ctx, {
         type: 'line',
         data: {
@@ -150,31 +160,40 @@
 </div>
 
 <div class="glass-card">
-  <div class="section-header">Recent Snapshots</div>
-  <table class="glass-table">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Net Worth</th>
-        <th>Cash</th>
-        <th>Investments</th>
-        <th>Savings</th>
-        <th>Liabilities</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in history | reverse %}
-      <tr>
-        <td>{{ s.timestamp[:10] }}</td>
-        <td><strong>{{ s.total_net_worth | format_currency }}</strong></td>
-        <td>{{ s.cash | format_currency }}</td>
-        <td>{{ s.investments | format_currency }}</td>
-        <td>{{ s.savings | format_currency }}</td>
-        <td>{{ s.liabilities | format_currency }}</td>
-      </tr>
+  <div class="section-header">Net Worth Activity</div>
+  {% if activity_feed %}
+  <div class="activity-feed">
+    {% for event in activity_feed %}
+    <div class="activity-item">
+      <div class="activity-icon {{ event.event_type }}">
+        {% if event.event_type == "income" %}+{% elif event.event_type == "expense" %}-{% else %}•{% endif %}
+      </div>
+      <div class="activity-main">
+        <div class="activity-topline">
+          <span class="activity-type">{{ event.event_type }}</span>
+          <span class="activity-time">{{ event.timestamp[:16].replace("T", " ") }}</span>
+        </div>
+        <div class="activity-description">{{ event.description }}</div>
+      </div>
+      <div class="activity-amount">
+        {% if event.event_type == "baseline" %}
+          <div class="activity-impact neutral">Baseline</div>
+          <div class="activity-value">{{ event.amount | format_currency }}</div>
+        {% else %}
+          <div class="activity-impact {% if event.impact >= 0 %}positive{% else %}danger{% endif %}">
+            {% if event.impact >= 0 %}+{% endif %}{{ event.impact | format_currency }}
+          </div>
+          <div class="activity-value">{{ event.amount | format_currency }}</div>
+        {% endif %}
+      </div>
+    </div>
       {% endfor %}
-    </tbody>
-  </table>
+  </div>
+  {% else %}
+  <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.7;">
+    No activity yet. Income and expenses after your baseline will appear here.
+  </p>
+  {% endif %}
 </div>
 
 {% else %}
