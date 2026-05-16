@@ -25,7 +25,7 @@ Rules every Claude session must follow when working in this repo.
 
 ## Test Discipline
 
-- 150 tests must remain passing at all times (`pytest`)
+- 179+ tests must remain passing at all times (`pytest`)
 - New features must include new tests
 - Run `pytest` before every commit
 - Never reduce the test count
@@ -36,16 +36,23 @@ Rules every Claude session must follow when working in this repo.
 
 All bot handlers are owner-gated via `app/auth.py → owner_only()`. Only `TELEGRAM_OWNER_CHAT_ID` can use the bot.
 
-Claude sends notifications via `scripts/notify_me.py`:
+**Terminal-only questions are not acceptable.** During autonomous sessions, Claude must route all decisions and blockers through Telegram — not ask in the terminal.
+
+Claude sends notifications via `scripts/notify_me.py` and `scripts/ask_user.py`:
 
 | When | Command |
 |------|---------|
 | Task started or milestone | `notify_me.py progress "..."` |
-| Decision needed | `notify_me.py decision "..." "A:..." "B:..."` |
+| Tests pass/fail | `notify_me.py progress "..."` / `notify_me.py error "..."` |
+| Commit created | `notify_me.py progress "Committed: ..."` |
+| Simple decision needed | `notify_me.py decision "..." "A:..." "B:..."` |
+| Structured decision with recommendation | `scripts/ask_user.py --question "..." --options "A) ..." --recommendation "..."` |
 | Manual setup needed (Railway, env vars) | `notify_me.py action "..."` |
 | Test failure or blocker | `notify_me.py error "..."` |
 | Module or task complete | `notify_me.py complete "..."` |
 | Session ending | `python scripts/create_handoff.py` |
+
+Full protocol: `docs/autonomous-session-protocol.md`
 
 ---
 

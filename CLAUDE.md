@@ -32,7 +32,7 @@ If any file is missing or stale (last updated >2 sessions ago), regenerate it be
 - When in doubt, read the code and run the tests first.
 
 ### Preserve Tests
-- The test suite (`tests/`) has 74 passing tests. Never reduce that count.
+- The test suite (`tests/`) currently has 179+ passing tests. Never reduce that count.
 - Before ending a session, run `pytest` and ensure all tests still pass.
 - New features must come with new tests.
 
@@ -55,14 +55,25 @@ If any file is missing or stale (last updated >2 sessions ago), regenerate it be
 ## Autonomous Workflow Rules
 
 ### Notify via Telegram
-Run `python scripts/notify_me.py <type> "<message>"` whenever:
-- A decision is needed from the user → `notify_me.py decision "..." "A:..." "B:..."`
-- Manual setup is required (Railway env vars, etc.) → `notify_me.py action "..."`
-- Deployment approval is needed → `notify_me.py action "..."`
-- Tests fail unexpectedly → `notify_me.py error "..."`
-- A module or task completes → `notify_me.py complete "..."`
-- A blocker occurs → `notify_me.py error "Blocked: ..."`
-- Session/context/token limit is nearing → run `create_handoff.py` immediately
+
+**Terminal-only questions are not acceptable during autonomous sessions.** If Claude needs a decision, approval, or clarification, it must send a Telegram notification — not ask in the terminal.
+
+Use `scripts/notify_me.py` for high-signal updates:
+
+| When | Command |
+|------|---------|
+| Starting task or milestone | `notify_me.py progress "..."` |
+| Tests passing or failing | `notify_me.py progress "..."` or `notify_me.py error "..."` |
+| Commit created | `notify_me.py progress "Committed: feat(...)"` |
+| Simple decision needed | `notify_me.py decision "..." "A:..." "B:..."` |
+| Structured decision with recommendation | `python scripts/ask_user.py --question "..." --options "A) ..." --recommendation "..."` |
+| Manual setup required (Railway, env vars) | `notify_me.py action "..."` |
+| Deployment approval needed | `notify_me.py action "..."` |
+| Test failure or blocker | `notify_me.py error "..."` |
+| Module or task complete | `notify_me.py complete "..."` |
+| Session ending or tokens low | `python scripts/create_handoff.py` |
+
+See `docs/autonomous-session-protocol.md` for full supervision protocol, response format, and safety rules.
 
 ### Create Handoff Before Stopping
 Always run `python scripts/create_handoff.py` before ending a session or when tokens are running low. This writes `handoff/latest.md`, updates `handoff/start_next_session_prompt.md`, writes state to PostgreSQL, and sends a Telegram notification.
@@ -187,7 +198,7 @@ finance-lifeos/
     dashboard.py     — FastAPI app (webhook + dashboard routes)
     templates/       — Jinja2 HTML templates
     static/          — CSS
-  tests/             — 74 passing tests
+  tests/             — 179+ passing tests
   docs/              — architecture, roadmap, status
   handoff/           — session handoff files
   run_polling.py     — local dev polling runner
