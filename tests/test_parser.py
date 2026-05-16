@@ -88,3 +88,106 @@ def test_parse_message_week_start_is_monday(monkeypatch):
     from datetime import date
     from app.utils import get_week_start
     assert result["week_start"] == get_week_start(date.today()).strftime("%Y-%m-%d")
+
+
+# --- Dutch regex fallback ---
+
+def test_dutch_expense_with_euro_word():
+    result = _regex_parse("ik heb 14 euro uitgegeven aan kebab")
+    assert result["amount"] == pytest.approx(14.0)
+    assert result["type"] == "Expense"
+    assert "kebab" in result["description"]
+
+
+def test_dutch_income_binnengekregen():
+    result = _regex_parse("314 DUO binnengekregen")
+    assert result["amount"] == pytest.approx(314.0)
+    assert result["type"] == "Income"
+
+
+def test_dutch_income_gekregen():
+    result = _regex_parse("150 gekregen van mijn oom")
+    assert result["amount"] == pytest.approx(150.0)
+    assert result["type"] == "Income"
+
+
+def test_dutch_fuel_getankt():
+    result = _regex_parse("net 65 getankt")
+    assert result["amount"] == pytest.approx(65.0)
+    assert result["type"] == "Expense"
+
+
+def test_dutch_comma_decimal():
+    result = _regex_parse("vandaag 8,50 koffie gehaald")
+    assert result["amount"] == pytest.approx(8.50)
+    assert result["type"] == "Expense"
+
+
+def test_english_natural():
+    result = _regex_parse("spent 8.50 on coffee")
+    assert result["amount"] == pytest.approx(8.50)
+    assert result["type"] == "Expense"
+
+
+# --- AI-mocked parse_message ---
+
+def test_parse_message_dutch_ai_response():
+    ai = {
+        "amount": 14.0, "type": "Expense", "description": "kebab",
+        "category": "Food", "is_impulse": False,
+        "confidence": 0.95, "needs_clarification": False, "clarification_question": "",
+    }
+    with patch("app.parser._ai_parse", return_value=ai):
+        result = parse_message("ik heb 14 euro uitgegeven aan kebab")
+    assert result["amount"] == pytest.approx(14.0)
+    assert result["type"] == "Expense"
+    assert result["category"] == "Food"
+    assert result.get("needs_clarification") is not True
+
+
+def test_parse_message_income_duo():
+    ai = {
+        "amount": 314.0, "type": "Income", "description": "DUO",
+        "category": "Income", "is_impulse": False,
+        "confidence": 1.0, "needs_clarification": False, "clarification_question": "",
+    }
+    with patch("app.parser._ai_parse", return_value=ai):
+        result = parse_message("314 DUO binnengekregen")
+    assert result["amount"] == pytest.approx(314.0)
+    assert result["type"] == "Income"
+
+
+def test_parse_message_needs_clarification():
+    ai = {
+        "amount": None, "type": "Expense", "description": "",
+        "category": "Other", "is_impulse": False,
+        "confidence": 0.2, "needs_clarification": True,
+        "clarification_question": "How much did you spend?",
+    }
+    with patch("app.parser._ai_parse", return_value=ai):
+        result = parse_message("iets iets")
+    assert result.get("needs_clarification") is True
+    assert "How much" in result.get("clarification_question", "")
+
+
+def test_parse_message_dynamic_category_normalized():
+    ai = {
+        "amount": 40.0, "type": "Expense", "description": "boxing gloves",
+        "category": "Sports", "is_impulse": False,
+        "confidence": 0.9, "needs_clarification": False, "clarification_question": "",
+    }
+    with patch("app.parser._ai_parse", return_value=ai):
+        result = parse_message("40 boxing gloves")
+    # "Sports" is a synonym for "Health"
+    assert result["category"] == "Health"
+
+
+def test_parse_message_synonym_category_normalized():
+    ai = {
+        "amount": 15.0, "type": "Expense", "description": "restaurant",
+        "category": "Dining", "is_impulse": False,
+        "confidence": 0.9, "needs_clarification": False, "clarification_question": "",
+    }
+    with patch("app.parser._ai_parse", return_value=ai):
+        result = parse_message("15 dinner")
+    assert result["category"] == "Food"

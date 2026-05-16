@@ -9,27 +9,46 @@ _log = logging.getLogger(__name__)
 TRANSFER_KEYWORDS = {"savings", "portfolio", "transfer", "spaarrekening"}
 INVESTMENT_KEYWORDS = {"degiro", "etf", "stock", "crypto", "invest", "investing"}
 
-_AI_PROMPT = """You are a personal finance assistant parsing a Telegram message into a transaction.
+_DUTCH_INCOME_KW = frozenset({
+    "gekregen", "ontvangen", "binnengekregen", "teruggekregen",
+    "salary", "salaris", "loon", "inkomen", "refund",
+})
+
+_AI_PROMPT = """You are a personal finance assistant. Parse this message (Dutch or English) into a transaction.
 
 Message: "{text}"
 
-Return ONLY a valid JSON object, no explanation, no markdown:
+Return ONLY valid JSON (no markdown, no explanation):
 {{
-  "amount": <number or null if no amount found>,
+  "amount": <positive number or null>,
   "type": "<Expense|Income|Transfer|Investment>",
-  "description": "<1-3 word description in English>",
-  "category": "<Food|Social|Transport|Project|Health|Clothing|Education|Impulse|Income|Investment|Transfer|Other>",
-  "is_impulse": <true|false>
+  "description": "<1-3 words in English, lowercase>",
+  "category": "<see below>",
+  "is_impulse": <true|false>,
+  "confidence": <0.0-1.0>,
+  "needs_clarification": <false|true>,
+  "clarification_question": "<short question or empty string>"
 }}
 
-Rules:
-- type is Income if receiving money (salary, gift, refund, freelance, DUO, from someone)
-- type is Transfer if moving money to savings or portfolio
-- type is Investment if buying stocks, ETF, crypto
-- type is Expense for everything else
-- is_impulse is true only if the purchase seems unplanned or unnecessary
-- description should be 1-3 words maximum, lowercase
-- amount must be a positive number"""
+Preferred categories: Food, Transport, Social, Health, Education, Project, Clothing, Income, Investment, Transfer, Impulse, Other
+If none fit, suggest a short clean name (e.g. Sports, Utilities, Personal).
+
+Type rules:
+- Expense: spending money on anything
+- Income: receiving money (salary, DUO, gift, refund, "gekregen", "ontvangen", "van oom/tante")
+- Transfer: moving to savings or portfolio ("gespaard", "spaarrekening", "portfolio")
+- Investment: buying stocks, ETF, crypto
+
+Dutch key phrases:
+- "uitgegeven aan" / "gekocht" / "gehaald" / "getankt" = spent (Expense)
+- "gekregen" / "ontvangen" / "binnengekregen" = received (Income)
+- "DUO" = Dutch student finance (Income)
+- "getankt" = filled up car with fuel (Expense, Transport)
+- Comma is decimal separator (8,50 = 8.50)
+
+Confidence: 1.0 if clear; <0.7 means ambiguous.
+Set needs_clarification=true ONLY if amount is missing OR type cannot be determined at all.
+clarification_question: a short question to ask the user (or empty string)."""
 
 
 def _ai_parse(text: str) -> dict | None:
@@ -69,27 +88,41 @@ def _ai_parse(text: str) -> dict | None:
 
 
 def _regex_parse(text: str) -> dict:
-    """Fallback: original rigid format parser."""
+    """Fallback parser — handles Dutch and English, finds amount anywhere in text."""
     original = text.strip()
+    lower = original.lower()
 
+    # Determine transaction type
     if original.startswith("+"):
         msg_type = "Income"
-        text = original[1:].strip()
     elif original.startswith("-"):
         msg_type = "Expense"
-        text = original[1:].strip()
+    elif any(kw in lower for kw in _DUTCH_INCOME_KW):
+        msg_type = "Income"
     else:
         msg_type = "Expense"
-        text = original
 
-    match = re.match(r"^(\d+(?:[.,]\d+)?)\s*(.*)", text)
-    if not match:
+    # Find amount anywhere in text (supports comma decimals)
+    m = re.search(r"(\d+(?:[.,]\d+)?)", original)
+    if not m:
         raise ValueError(f"Cannot parse amount from: {original!r}")
+    amount = float(m.group(1).replace(",", "."))
 
-    amount = float(match.group(1).replace(",", "."))
-    description = match.group(2).strip().lower()
-    desc_words = set(description.split())
+    # Extract description: remove amount and Dutch/English filler
+    desc = original
+    desc = re.sub(r"[+\-]", "", desc)
+    desc = re.sub(r"\d+(?:[.,]\d+)?", "", desc)
+    desc = re.sub(
+        r"\b(?:ik heb|vandaag|net|euro|eur|€|uitgegeven aan|gehaald|"
+        r"getankt|gekocht|gekregen|ontvangen|binnengekregen|"
+        r"teruggekregen|van mijn|mijn|voor|aan|spent|on|filled up|for)\b",
+        " ", desc, flags=re.IGNORECASE,
+    )
+    desc = re.sub(r"\s+", " ", desc).strip().lower()
+    desc = desc or "expense"
 
+    # Override to Investment/Transfer if keyword found
+    desc_words = set(desc.split())
     if msg_type == "Expense":
         if desc_words & INVESTMENT_KEYWORDS:
             msg_type = "Investment"
@@ -98,46 +131,53 @@ def _regex_parse(text: str) -> dict:
 
     return {
         "amount": amount,
-        "description": description or "expense",
+        "description": desc[:50],
         "type": msg_type,
         "category": None,
-        "is_impulse": "impulse" in description,
+        "is_impulse": "impulse" in desc,
     }
 
 
 def parse_message(text: str) -> dict:
     """Parse a Telegram message into a transaction dict.
 
-    Tries AI parsing first (understands natural language), falls back to
-    rigid regex parsing if AI is unavailable or fails.
-
     Returns dict with: amount, description, type, category, is_impulse,
     timestamp, date, week_start, month.
+
+    If AI signals needs_clarification=True, returns a special dict with
+    needs_clarification=True and clarification_question instead of transaction fields.
     """
     now = datetime.now()
     today = now.date()
-
-    # Try AI first
-    ai_result = _ai_parse(text)
-
-    if ai_result and ai_result.get("amount"):
-        parsed = {
-            "amount": float(ai_result["amount"]),
-            "description": str(ai_result.get("description", text[:30])).lower(),
-            "type": ai_result.get("type", "Expense"),
-            "category": ai_result.get("category"),
-            "is_impulse": bool(ai_result.get("is_impulse", False)),
-        }
-    else:
-        # Fallback to regex
-        parsed = _regex_parse(text)
-
-    # Add time fields
-    parsed.update({
+    time_fields = {
         "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
         "date": today.strftime("%Y-%m-%d"),
         "week_start": get_week_start(today).strftime("%Y-%m-%d"),
         "month": get_month(today),
-    })
+    }
 
+    ai_result = _ai_parse(text)
+
+    # Handle clarification request from AI
+    if ai_result and ai_result.get("needs_clarification"):
+        return {
+            "needs_clarification": True,
+            "clarification_question": ai_result.get("clarification_question") or "Could you be more specific?",
+            **time_fields,
+        }
+
+    if ai_result and ai_result.get("amount"):
+        from app.categories import normalize_category
+        raw_cat = ai_result.get("category") or ""
+        parsed = {
+            "amount": float(ai_result["amount"]),
+            "description": str(ai_result.get("description", text[:30])).lower(),
+            "type": ai_result.get("type", "Expense"),
+            "category": normalize_category(raw_cat) if raw_cat else None,
+            "is_impulse": bool(ai_result.get("is_impulse", False)),
+        }
+    else:
+        parsed = _regex_parse(text)
+
+    parsed.update(time_fields)
     return parsed
