@@ -8,7 +8,7 @@ _Last updated: 2026-05-15_
 
 | Check | Status |
 |-------|--------|
-| Tests | ✅ 148 / 148 passing |
+| Tests | ✅ 173 / 173 passing |
 | Railway deploy | ✅ Live at https://lifeos-aw.up.railway.app |
 | Telegram bot | ✅ Webhook active |
 | PostgreSQL | ✅ Railway-managed |
@@ -67,27 +67,36 @@ _Last updated: 2026-05-15_
 - Natural language snapshot logging via Telegram: "net worth cash 2k investments 8k savings 3k"
 - AI parse (GPT-4o-mini) + regex fallback with `k` suffix support and `debt`→`liabilities` alias
 - PostgreSQL `net_worth_snapshots` table — append-only historical snapshots, never overwritten
-- `total_net_worth` always calculated as `assets − liabilities` at insert time
+- **Live net worth calculation**: baseline snapshot + (income transactions) − (expense transactions) since baseline timestamp
+  - Ignores Transfer, Investment, and [UNDONE] transactions
+  - Automatically coupled to `/transactions` data
+- **Monthly net worth change KPI**: compares live net worth to latest pre-month snapshot
+  - Returns "Insufficient history" if no prior snapshot exists
 - Bot commands (all owner-gated):
-  - `/networth` — latest snapshot with breakdown
+  - `/networth` — shows live net worth as primary total; baseline as context
   - `/networth_history` — last 5 snapshots with running delta
-  - `/goal` — €25K and €30K progress with ASCII progress bars
+  - `/goal` — single €30K progress with ASCII progress bar
 - Message routing: `handle_message` auto-detects net worth messages before finance parser
 - Dashboard page `/networth`:
-  - Net worth KPI card + change-since-last-snapshot KPI
-  - Goal progress cards for €25K and €30K
+  - **Live Net Worth** KPI (baseline + income − expenses since baseline)
+  - **Monthly Net Worth Change** KPI (compares to previous month; "Insufficient history" if not available)
+  - Single €30K goal card with progress bar
   - Asset allocation bar chart
-  - Chart.js line chart (trend over time, shown when 2+ snapshots exist)
+  - Chart.js line chart with live net worth appended as final "Live" point
   - Recent snapshots table
   - Empty-state UX with Telegram onboarding instructions
+- **Production database**: clean baseline snapshot (id=4, €15,000 other_assets) established 2026-05-16
 
 ### Key Files
 - `app/networth_parser.py` — natural language → asset fields
-- `app/networth.py` — goal calculations, change delta, ASCII progress bar
-- `app/templates/networth.html` — dashboard page with Chart.js
+- `app/networth.py` — `calculate_live_net_worth()`, `calculate_monthly_change()`, goal calculations
+- `app/commands.py` — bot handlers using live net worth
+- `app/dashboard.py` — `/networth` route with live NW + monthly change
+- `app/templates/networth.html` — KPI cards and chart with live point
 
 ### Do Not Touch
 - `net_worth_snapshots` table — append-only by design; do not alter schema or delete rows
+- `calculate_live_net_worth()` and `calculate_monthly_change()` — coupled to transaction parser
 
 ---
 

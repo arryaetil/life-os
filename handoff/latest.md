@@ -1,4 +1,4 @@
-# Handoff — 2026-05-15 15:26 UTC
+# Handoff — 2026-05-16 10:26 UTC
 
 ## What Was Done
 - Session ended. See recent commits below.
@@ -6,18 +6,20 @@
 - Last task: Unknown
 
 ## Files Changed
-M .gitignore
+M docs/current-status.md
  M handoff/latest.md
- M lifeos.db
-?? docs/superpowers/plans/2026-05-15-agent-control-layer.md
-?? docs/superpowers/plans/2026-05-15-handoff-notify.md
+?? .obsidian/
+?? 2026-05-15.md
+?? Untitled.canvas
+?? docs/superpowers/plans/2026-05-15-module-1-1-net-worth.md
+?? docs/superpowers/plans/2026-05-15-module-1-1-refinements.md
 
 ## Recent Commits
-14ecaf8 docs: add autonomous workflow rules and supervision guide
-12c8407 feat(bot): add /status /next /git /handoff commands
-9af3c65 feat(scripts): add create_handoff.py and startup prompt template
-22cb552 feat(scripts): add notify_me.py typed notification CLI
-c6cf33b feat(db): add agent_state table with write/read functions
+55d4b76 feat(1.1): refine net worth dashboard — monthly change KPI, live NW, single 30K goal, live chart point
+e5d4ebc feat(1.1): dashboard uses live net worth and monthly change KPI
+4aa12cb test(1.1): add parser test for 'net worth 15k' k-suffix without breakdown
+b43acc1 feat(1.1): use live net worth in cmd_networth and cmd_goal; single 30K goal
+f932a25 fix(1.1): sort pre-month history defensively in calculate_monthly_change
 
 ## Current State
 Session handoff triggered. Review git log and docs/current-status.md for full picture.
