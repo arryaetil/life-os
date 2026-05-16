@@ -1,4 +1,4 @@
-# Handoff — 2026-05-16 11:31 UTC
+# Handoff — 2026-05-16 12:10 UTC
 
 ## What Was Done
 - Session ended. See recent commits below.
@@ -14,13 +14,14 @@
 ?? docs/superpowers/plans/2026-05-16-agent-control-ux-bugs.md
 ?? docs/superpowers/plans/2026-05-16-autonomous-session-protocol.md
 ?? docs/superpowers/plans/2026-05-16-conversational-agent-v1.md
+?? docs/superpowers/plans/2026-05-16-nl-parsing-and-categories.md
 
 ## Recent Commits
-1ac0027 docs(1.4): document conversational AI agent v1 — intent routing, vault context, action proposals
-003c077 feat(1.4): route lifeos questions and action requests to AI agent
-78a7db0 feat(1.4): add ai_agent — OpenAI-powered lifeos answers and action proposals
-1a58f85 feat(1.4): add intent_classifier — routes messages to finance/question/action/unknown
-b994dc6 feat(1.4): add vault_context loader — fixed context pack for AI agent
+a9ad123 feat(parser): ask clarification when AI signals low confidence instead of logging
+2224a88 feat(parser): Dutch+English AI prompt, confidence/clarification support, Dutch regex fallback
+b333802 feat(parser): add normalize_category — synonym map prevents category duplication
+acb286a fix(1.1): normalize timestamp separator before comparison in calculate_live_net_worth
+f172def docs(1.4): handoff after conversational agent v1
 
 ## Current State
 Session handoff triggered. Review git log and docs/current-status.md for full picture.
