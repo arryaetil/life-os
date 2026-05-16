@@ -8,12 +8,33 @@ from app.categories import get_category
 from app.utils import format_currency
 from app.networth_parser import is_net_worth_message, parse_net_worth_message
 from app.networth import GOALS, calculate_goal_progress, ascii_progress_bar, calculate_live_net_worth
+from app.agent_control import is_agent_reply
 
 _log = logging.getLogger(__name__)
 
 
+async def handle_agent_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    from app import database
+    pending = database.read_pending_action()
+    if pending is None:
+        await update.message.reply_text(
+            "No active agent decision is waiting. Use /status to see current state."
+        )
+        return
+    database.resolve_agent_state(pending["id"])
+    token = text.strip().upper()
+    if pending["status_type"] == "manual_action":
+        reply = "Manual action marked as done."
+    else:
+        reply = f"Decision received: {token}. I'll continue with that direction."
+    await update.message.reply_text(reply)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
+    if is_agent_reply(text):
+        await handle_agent_reply(update, context, text)
+        return
     if is_net_worth_message(text):
         await _handle_net_worth_message(update, context, text)
         return
