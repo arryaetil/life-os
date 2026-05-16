@@ -9,10 +9,12 @@ Writes:
 Updates agent_state in PostgreSQL and sends a Telegram notification.
 
 Usage:
-    python scripts/create_handoff.py
+    python scripts/create_handoff.py           # Send Telegram notification
+    python scripts/create_handoff.py --silent  # Skip Telegram notification
 """
 import sys
 import subprocess
+import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -133,6 +135,14 @@ uvicorn app.dashboard:app --reload
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate session handoff files")
+    parser.add_argument(
+        "--silent",
+        action="store_true",
+        help="Write handoff files and DB state but skip Telegram notification",
+    )
+    args = parser.parse_args()
+
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     git_status = _git(["status", "--short"])
     git_log = _git(["log", "--oneline", "-5"])
@@ -165,6 +175,10 @@ def main() -> None:
         "current_module": (last_state or {}).get("current_module"),
         "next_task": (last_state or {}).get("next_task"),
     })
+
+    if args.silent:
+        print("✓ Silent mode: handoff files written, Telegram notification skipped.")
+        return
 
     sent = send_telegram_message(TELEGRAM_MESSAGE)
     if sent:
