@@ -1,4 +1,5 @@
 import logging
+import re
 from app import config
 
 # Imported at module level so tests can patch them cleanly.
@@ -63,13 +64,15 @@ _CATEGORY_SYNONYMS: dict[str, str] = {
     "Car": "Transport", "Gas": "Transport", "Fuel": "Transport",
     "Travel": "Transport", "Petrol": "Transport",
     "Entertainment": "Social", "Nightlife": "Social",
-    "Fitness": "Health", "Medical": "Health", "Sports": "Health",
-    "Sport": "Health", "Training": "Health", "Boxing": "Health",
+    "Fitness": "Health", "Medical": "Health",
     "Books": "Education", "Learning": "Education", "Course": "Education",
     "Shopping": "Clothing", "Fashion": "Clothing",
     "Tech": "Project", "Software": "Project", "Tools": "Project",
     "Technology": "Project",
 }
+
+_MAX_DYNAMIC_WORDS = 3
+_LOW_CONFIDENCE_THRESHOLD = 0.7
 
 
 def normalize_category(category: str) -> str:
@@ -79,20 +82,66 @@ def normalize_category(category: str) -> str:
     """
     if not category or not category.strip():
         return "Other"
-    cat = category.strip().title()
+    cat = re.sub(r"[^A-Za-z0-9 &/-]+", " ", category)
+    cat = re.sub(r"\s+", " ", cat).strip().title()
+    if not cat:
+        return "Other"
     return _CATEGORY_SYNONYMS.get(cat, cat)
 
 
-_AI_PROMPT = (
-    "You are a personal finance categorizer. Given this expense description, "
-    "return exactly one category from this list:\n"
-    "Food, Social, Transport, Project, Health, Clothing, Education, Impulse, "
-    "Income, Investment, Transfer, Other\n\n"
-    'Description: "{description}"\n'
-    "Reply with the category name only. No explanation."
-)
-
 _log = logging.getLogger(__name__)
+
+
+def get_stored_categories() -> set[str]:
+    """Return categories already persisted on transactions."""
+    try:
+        from app import database
+        return {
+            normalize_category(str(t.get("category", "")))
+            for t in database.get_all_transactions()
+            if t.get("category") and t.get("notes") != "[UNDONE]"
+        } - {"Other"}
+    except Exception as exc:
+        _log.debug("Could not load stored categories: %s", exc)
+        return set()
+
+
+def get_available_categories() -> list[str]:
+    categories = KNOWN_CATEGORIES | get_stored_categories()
+    return sorted(categories - {"Other"}) + ["Other"]
+
+
+def is_existing_category(category: str) -> bool:
+    return normalize_category(category) in set(get_available_categories())
+
+
+def is_clean_dynamic_category(category: str) -> bool:
+    cat = normalize_category(category)
+    if cat in KNOWN_CATEGORIES:
+        return True
+    words = cat.replace("&", " ").replace("/", " ").replace("-", " ").split()
+    return 1 <= len(words) <= _MAX_DYNAMIC_WORDS and all(len(word) >= 2 for word in words)
+
+
+def needs_category_clarification(parsed: dict, category: str) -> bool:
+    """Ask before accepting a low-confidence new category."""
+    try:
+        confidence = float(parsed.get("confidence", 1.0))
+    except (TypeError, ValueError):
+        confidence = 1.0
+    return (
+        confidence < _LOW_CONFIDENCE_THRESHOLD
+        and normalize_category(category) not in set(get_available_categories())
+    )
+
+
+def build_category_clarification_question(description: str, category: str) -> str:
+    available = ", ".join(get_available_categories())
+    return (
+        f"Should '{description}' be categorized as {category}, or one of: "
+        f"{available}?"
+    )
+
 
 def _keyword_match(description: str) -> str | None:
     desc_lower = description.lower()
@@ -102,7 +151,16 @@ def _keyword_match(description: str) -> str | None:
     return None
 
 def _ai_categorize(description: str) -> str:
-    prompt = _AI_PROMPT.format(description=description)
+    categories = ", ".join(get_available_categories())
+    prompt = (
+        "You are a personal finance categorizer.\n"
+        f"Existing categories: {categories}\n\n"
+        "Prefer an existing category when it fits well. Only suggest a new "
+        "category when it is clearly useful and not a duplicate. Keep any new "
+        "category short and clean. Avoid duplicates like Food/Eating/Meals.\n\n"
+        f'Description: "{description}"\n'
+        "Reply with the category name only. No explanation."
+    )
 
     if config.OPENAI_API_KEY and OpenAI is not None:
         client = OpenAI(api_key=config.OPENAI_API_KEY)
@@ -130,7 +188,10 @@ def get_category(description: str) -> str:
         return matched
     try:
         raw = _ai_categorize(description)
-        return normalize_category(raw)
+        category = normalize_category(raw)
+        if not is_clean_dynamic_category(category):
+            return "Other"
+        return category
     except Exception as exc:
         _log.warning("AI categorization failed for %r: %s", description, exc)
         return "Other"

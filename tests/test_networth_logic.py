@@ -6,6 +6,7 @@ from app.networth import (
     ascii_progress_bar,
     GOALS,
     calculate_live_net_worth,
+    calculate_live_net_worth_series,
     calculate_monthly_change,
 )
 
@@ -158,6 +159,56 @@ def test_live_nw_combined():
         _make_txn("Income", 300.0, undone=True),  # ignored
     ]
     assert calculate_live_net_worth(baseline, txns) == pytest.approx(15400.0)
+
+
+def test_live_nw_series_starts_with_baseline():
+    baseline = _make_baseline(15000.0)
+    series = calculate_live_net_worth_series(baseline, [])
+    assert series == [{
+        "timestamp": "2026-05-01T00:00:00+00:00",
+        "label": "2026-05-01",
+        "total_net_worth": 15000.0,
+        "source": "snapshot",
+    }]
+
+
+def test_live_nw_series_applies_income_and_expenses_chronologically():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Income", 314.0, ts="2026-05-04T12:00:00+00:00"),
+        _make_txn("Expense", 122.0, ts="2026-05-03T12:00:00+00:00"),
+        _make_txn("Expense", 14.0, ts="2026-05-02T12:00:00+00:00"),
+    ]
+    series = calculate_live_net_worth_series(baseline, txns)
+    assert [p["total_net_worth"] for p in series] == [
+        15000.0,
+        14986.0,
+        14864.0,
+        15178.0,
+    ]
+    assert calculate_live_net_worth(baseline, txns) == pytest.approx(15178.0)
+
+
+def test_live_nw_series_ignores_transfer_investment_and_undone():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-01T00:00:00+00:00")
+    txns = [
+        _make_txn("Transfer", 1000.0, ts="2026-05-02T12:00:00+00:00"),
+        _make_txn("Investment", 500.0, ts="2026-05-03T12:00:00+00:00"),
+        _make_txn("Expense", 25.0, ts="2026-05-04T12:00:00+00:00", undone=True),
+        _make_txn("Expense", 40.0, ts="2026-05-05T12:00:00+00:00"),
+    ]
+    series = calculate_live_net_worth_series(baseline, txns)
+    assert [p["total_net_worth"] for p in series] == [15000.0, 14960.0]
+
+
+def test_live_nw_series_ignores_transactions_before_baseline():
+    baseline = _make_baseline(15000.0, timestamp="2026-05-10T00:00:00+00:00")
+    txns = [
+        _make_txn("Income", 500.0, ts="2026-05-09T12:00:00+00:00"),
+        _make_txn("Expense", 100.0, ts="2026-05-10T12:00:00+00:00"),
+    ]
+    series = calculate_live_net_worth_series(baseline, txns)
+    assert [p["total_net_worth"] for p in series] == [15000.0, 14900.0]
 
 
 # --- calculate_monthly_change ---

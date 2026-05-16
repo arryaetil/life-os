@@ -121,3 +121,24 @@ def test_networth_page_shows_total_when_data(client):
          patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=snap):
         response = client.get("/networth")
     assert "13000.00" in response.text
+
+
+def test_networth_chart_uses_transaction_adjusted_series(client):
+    snap = {
+        "id": 1, "timestamp": "2026-05-15T10:00:00+00:00",
+        "cash": 2000.0, "investments": 8000.0, "crypto": 0.0,
+        "savings": 5000.0, "other_assets": 0.0, "liabilities": 0.0,
+        "total_net_worth": 15000.0, "notes": "",
+    }
+    txns = [
+        {"id": 1, "timestamp": "2026-05-15 11:00:00", "type": "Expense", "amount": 14.0, "notes": ""},
+        {"id": 2, "timestamp": "2026-05-15 12:00:00", "type": "Expense", "amount": 122.0, "notes": ""},
+        {"id": 3, "timestamp": "2026-05-15 13:00:00", "type": "Income", "amount": 314.0, "notes": ""},
+        {"id": 4, "timestamp": "2026-05-15 14:00:00", "type": "Transfer", "amount": 500.0, "notes": ""},
+    ]
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[snap]), \
+         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=snap), \
+         patch("app.dashboard.sheets.get_all_transactions", return_value=txns):
+        response = client.get("/networth")
+    assert "15178.00" in response.text
+    assert "[15000.0, 14986.0, 14864.0, 15178.0]" in response.text

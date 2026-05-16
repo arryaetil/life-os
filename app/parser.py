@@ -175,6 +175,7 @@ def parse_message(text: str) -> dict:
             "type": ai_result.get("type", "Expense"),
             "category": normalize_category(raw_cat) if raw_cat else None,
             "is_impulse": bool(ai_result.get("is_impulse", False)),
+            "confidence": float(ai_result.get("confidence", 1.0)),
         }
     else:
         parsed = _regex_parse(text)

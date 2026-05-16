@@ -17,14 +17,32 @@ def calculate_net_worth(snapshot: dict) -> float:
 
 
 def calculate_live_net_worth(baseline: dict | None, transactions: list[dict]) -> float:
-    if baseline is None:
+    series = calculate_live_net_worth_series(baseline, transactions)
+    if not series:
         return 0.0
+    return series[-1]["total_net_worth"]
+
+
+def calculate_live_net_worth_series(baseline: dict | None, transactions: list[dict]) -> list[dict]:
+    if baseline is None:
+        return []
     # Normalize separator: parse_message uses space, snapshots use T (ISO).
     # Space (0x20) < T (0x54) so without normalization all transactions are skipped.
     baseline_ts = baseline["timestamp"].replace(" ", "T")
     net = float(baseline["total_net_worth"])
-    for t in transactions:
-        if t.get("timestamp", "").replace(" ", "T") <= baseline_ts:
+    series = [{
+        "timestamp": baseline["timestamp"],
+        "label": baseline["timestamp"][:10],
+        "total_net_worth": round(net, 2),
+        "source": "snapshot",
+    }]
+    relevant_transactions = sorted(
+        transactions,
+        key=lambda t: t.get("timestamp", "").replace(" ", "T"),
+    )
+    for t in relevant_transactions:
+        tx_ts = t.get("timestamp", "").replace(" ", "T")
+        if tx_ts <= baseline_ts:
             continue
         if "[UNDONE]" in (t.get("notes") or ""):
             continue
@@ -32,7 +50,16 @@ def calculate_live_net_worth(baseline: dict | None, transactions: list[dict]) ->
             net += float(t["amount"])
         elif t["type"] == "Expense":
             net -= float(t["amount"])
-    return round(net, 2)
+        else:
+            continue
+        series.append({
+            "timestamp": t.get("timestamp", ""),
+            "label": (t.get("timestamp", "") or "")[:10],
+            "total_net_worth": round(net, 2),
+            "source": "transaction",
+            "transaction_id": t.get("id"),
+        })
+    return series
 
 
 def calculate_goal_progress(current: float, target: float) -> dict:

@@ -1,5 +1,10 @@
 from unittest.mock import patch, MagicMock
-from app.categories import get_category, _keyword_match
+from app.categories import (
+    get_category,
+    _keyword_match,
+    get_available_categories,
+    needs_category_clarification,
+)
 
 def test_food_kebab():
     assert get_category("kebab") == "Food"
@@ -89,7 +94,6 @@ def test_normalize_synonym_maps_to_canonical():
     assert normalize_category("Eating") == "Food"
     assert normalize_category("Meals") == "Food"
     assert normalize_category("Fitness") == "Health"
-    assert normalize_category("Sports") == "Health"
     assert normalize_category("Gas") == "Transport"
     assert normalize_category("Fuel") == "Transport"
     assert normalize_category("Shopping") == "Clothing"
@@ -108,3 +112,27 @@ def test_normalize_empty_returns_other():
 def test_normalize_case_insensitive_synonym():
     assert normalize_category("eating") == "Food"
     assert normalize_category("MEALS") == "Food"
+
+
+def test_sports_can_be_dynamic_category():
+    assert normalize_category("Sports") == "Sports"
+
+
+def test_stored_categories_are_reusable(monkeypatch):
+    transactions = [
+        {"category": "Sports", "notes": ""},
+        {"category": "Dining", "notes": ""},
+        {"category": "Archived", "notes": "[UNDONE]"},
+    ]
+    monkeypatch.setattr("app.database.get_all_transactions", lambda: transactions)
+    assert "Sports" in get_available_categories()
+    assert "Food" in get_available_categories()
+    assert "Dining" not in get_available_categories()
+    assert "Archived" not in get_available_categories()
+
+
+def test_low_confidence_new_category_needs_clarification(monkeypatch):
+    monkeypatch.setattr("app.categories.get_stored_categories", lambda: set())
+    parsed = {"description": "mystery thing", "confidence": 0.4}
+    assert needs_category_clarification(parsed, "Odd Stuff") is True
+    assert needs_category_clarification(parsed, "Food") is False

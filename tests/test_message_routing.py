@@ -171,3 +171,28 @@ async def test_ambiguous_message_sends_clarification_question():
         await handle_message(update, MagicMock())
     reply = update.message.reply_text.call_args[0][0]
     assert "How much" in reply
+
+
+async def test_low_confidence_new_category_asks_before_saving():
+    from app.commands import handle_message
+    update = _make_update("40 weird gear")
+    parsed = {
+        "timestamp": "2026-05-16T10:00:00+00:00",
+        "date": "2026-05-16",
+        "week_start": "2026-05-13",
+        "month": "2026-05",
+        "type": "Expense",
+        "amount": 40.0,
+        "description": "weird gear",
+        "category": "Odd Stuff",
+        "is_impulse": False,
+        "confidence": 0.4,
+    }
+    with patch("app.commands.parse_message", return_value=parsed), \
+         patch("app.commands.classify_intent", return_value="finance_transaction"), \
+         patch("app.categories.get_stored_categories", return_value=set()), \
+         patch("app.database.append_transaction") as mock_append:
+        await handle_message(update, MagicMock())
+    reply = update.message.reply_text.call_args[0][0]
+    assert "Should 'weird gear' be categorized as Odd Stuff" in reply
+    mock_append.assert_not_called()

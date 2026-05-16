@@ -88,7 +88,8 @@ async def networth_page(request: Request):
     latest = sheets.get_latest_net_worth_snapshot()
     history = sheets.get_net_worth_history(limit=30)
     all_transactions = sheets.get_all_transactions()
-    live_nw = nw_module.calculate_live_net_worth(latest, all_transactions)
+    chart_series = nw_module.calculate_live_net_worth_series(latest, all_transactions)
+    live_nw = chart_series[-1]["total_net_worth"] if chart_series else 0.0
     monthly_change = nw_module.calculate_monthly_change(live_nw, history)
     goals = [
         {**g, **nw_module.calculate_goal_progress(live_nw, g["target"])}
@@ -108,8 +109,8 @@ async def networth_page(request: Request):
         allocation = [a for a in raw if a["amount"] > 0]
         pos_amounts = [a["amount"] for a in allocation]
         max_asset = max(pos_amounts) if pos_amounts else 1.0
-    chart_labels = [s["timestamp"][:10] for s in history]
-    chart_values = [s["total_net_worth"] for s in history]
+    chart_labels = [s["label"] for s in chart_series]
+    chart_values = [s["total_net_worth"] for s in chart_series]
     return templates.TemplateResponse(request, "networth.html", {
         "active_page": "networth",
         "latest": latest,

@@ -4,7 +4,11 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from app import database as sheets, budget as budget_module, config
 from app.parser import parse_message
-from app.categories import get_category
+from app.categories import (
+    build_category_clarification_question,
+    get_category,
+    needs_category_clarification,
+)
 from app.utils import format_currency
 from app.networth_parser import is_net_worth_message, parse_net_worth_message
 from app.networth import GOALS, calculate_goal_progress, ascii_progress_bar, calculate_live_net_worth
@@ -87,6 +91,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     category = parsed.get("category") or get_category(parsed["description"])
+    if needs_category_clarification(parsed, category):
+        await update.message.reply_text(
+            build_category_clarification_question(parsed["description"], category)
+        )
+        return
+
     sheets.append_transaction(parsed, category)
     transactions = sheets.get_all_transactions()
     status = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)

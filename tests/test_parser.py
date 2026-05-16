@@ -178,8 +178,8 @@ def test_parse_message_dynamic_category_normalized():
     }
     with patch("app.parser._ai_parse", return_value=ai):
         result = parse_message("40 boxing gloves")
-    # "Sports" is a synonym for "Health"
-    assert result["category"] == "Health"
+    assert result["category"] == "Sports"
+    assert result["confidence"] == pytest.approx(0.9)
 
 
 def test_parse_message_synonym_category_normalized():
