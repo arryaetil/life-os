@@ -83,9 +83,14 @@ async def categories_page(request: Request):
 @app.get("/transactions")
 async def transactions_page(request: Request):
     transactions = sheets.get_all_transactions()
+    sorted_txns = sorted(
+        transactions,
+        key=lambda t: (t.get("date", ""), t.get("timestamp", "")),
+        reverse=True,
+    )
     return templates.TemplateResponse(request, "transactions.html", {
         "active_page": "transactions",
-        "transactions": list(reversed(transactions)),
+        "transactions": sorted_txns,
     })
 
 @app.get("/financials")
