@@ -54,6 +54,7 @@ nav {
   align-items: center;
   gap: 8px;
   padding: 14px 32px;
+  padding-top: calc(14px + env(safe-area-inset-top));
   background: rgba(8, 12, 20, 0.72);
   backdrop-filter: blur(60px) saturate(200%);
   -webkit-backdrop-filter: blur(60px) saturate(200%);
@@ -68,6 +69,12 @@ nav {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-right: 16px;
+}
+
+.nav-icon {
+  display: none;
+  width: 22px;
+  height: 22px;
 }
 
 nav a {
@@ -88,6 +95,14 @@ nav a.active { color: var(--text-primary); background: rgba(63,90,245,0.18); }
   max-width: 1100px;
   margin: 0 auto;
   padding: 36px 24px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+}
+
+/* ── Table scroll wrapper (mobile) ── */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── KPI grid ── */
@@ -217,14 +232,60 @@ nav a.active { color: var(--text-primary); background: rgba(63,90,245,0.18); }
 .cat-fill.top { background: linear-gradient(90deg, #3F5AF5, #a78bfa); }
 .cat-amount { width: 80px; text-align: right; font-size: 14px; font-weight: 600; }
 
-/* ── Responsive ── */
+/* ── Responsive / Mobile ── */
 @media (max-width: 640px) {
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .container { padding: 20px 16px; }
-  nav { padding: 12px 16px; }
+  /* Bottom tab bar */
+  nav {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    justify-content: space-around;
+    border-bottom: none;
+    border-top: 1px solid var(--glass-border);
+    gap: 0;
+  }
+  .nav-logo { display: none; }
+  nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 10px;
+    min-width: 60px;
+    min-height: 44px;
+    justify-content: center;
+  }
+  .nav-icon { display: block; }
+
+  /* Push content above bottom nav */
+  body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+
+  /* Layout */
+  .container {
+    padding: 16px 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .kpi-value { font-size: 20px; }
-  .glass-card { padding: 16px; }
-  .glass-table th, .glass-table td { padding: 10px; font-size: 13px; }
+  .glass-card { padding: 14px; border-radius: 16px; }
+
+  /* Touch-friendly table */
+  .glass-table th, .glass-table td {
+    padding: 10px 10px;
+    font-size: 13px;
+  }
+
+  /* Category bars */
+  .cat-name { width: 90px; font-size: 13px; }
+  .cat-amount { width: 64px; font-size: 13px; }
 }
 
 /* ── Net Worth additions ── */
@@ -321,10 +382,12 @@ nav a.active { color: var(--text-primary); background: rgba(63,90,245,0.18); }
 @media (max-width: 640px) {
   .activity-item {
     grid-template-columns: 30px 1fr;
+    gap: 8px;
   }
   .activity-amount {
     grid-column: 2;
     min-width: 0;
     text-align: left;
   }
+  .activity-icon { width: 30px; height: 30px; border-radius: 8px; }
 }
