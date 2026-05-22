@@ -22,9 +22,9 @@ _VAULT_FILES = [
 
 # Files loaded specifically for the coach (separate from general vault context)
 COACH_MEMORY_FILES = [
-    ("vault/sessions/coach-memory.md", 800),
-    ("vault/personal/goals.md", 400),
-    ("vault/personal/values.md", 300),
+    ("vault/sessions/coach-memory.md", 1600),
+    ("vault/personal/goals.md", 1200),
+    ("vault/personal/values.md", 1800),
 ]
 
 
