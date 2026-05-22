@@ -4,12 +4,8 @@
 <div class="glass-card">
   <div class="section-header">All Transactions — newest first</div>
 
-  {# AUTH TODO: Add authentication before making this dashboard public.
-     Recommended: FastAPI HTTP Basic Auth dependency on all routes.
-     Without auth, anyone with the Railway URL can see your finances. #}
-
   {% if transactions %}
-  <table class="glass-table">
+  <table class="glass-table" id="txn-table">
     <thead>
       <tr>
         <th>Date</th>
@@ -18,17 +14,67 @@
         <th>Description</th>
         <th>Category</th>
         <th>Impulse</th>
+        <th style="width:120px"></th>
       </tr>
     </thead>
     <tbody>
       {% for t in transactions %}
-      <tr class="{{ 'undone' if '[UNDONE]' in (t.notes or '') else '' }}">
-        <td>{{ t.date }}</td>
-        <td><span class="pill {{ t.type | lower }}">{{ t.type }}</span></td>
-        <td>{{ t.amount | format_currency }}</td>
-        <td>{{ t.description }}</td>
-        <td><span class="pill">{{ t.category }}</span></td>
-        <td>{% if t.is_impulse %}<span class="pill impulse">yes</span>{% endif %}</td>
+      <tr id="row-{{ t.id }}"
+          data-id="{{ t.id }}"
+          class="{{ 'undone' if '[UNDONE]' in (t.notes or '') else '' }}">
+
+        {# --- view cells --- #}
+        <td class="cell-view" data-field="date">{{ t.date }}</td>
+        <td class="cell-view" data-field="type">
+          <span class="pill {{ t.type | lower }}">{{ t.type }}</span>
+        </td>
+        <td class="cell-view" data-field="amount">{{ t.amount | format_currency }}</td>
+        <td class="cell-view" data-field="description">{{ t.description }}</td>
+        <td class="cell-view" data-field="category">
+          <span class="pill">{{ t.category }}</span>
+        </td>
+        <td class="cell-view" data-field="is_impulse">
+          {% if t.is_impulse %}<span class="pill impulse">yes</span>{% endif %}
+        </td>
+
+        {# --- edit cells (hidden initially) --- #}
+        <td class="cell-edit" data-field="date" style="display:none">
+          <input class="edit-input" name="date" value="{{ t.date }}" type="date">
+        </td>
+        <td class="cell-edit" data-field="type" style="display:none">
+          <select class="edit-input" name="type">
+            {% for opt in ["Expense","Income","Transfer","Investment"] %}
+            <option value="{{ opt }}" {{ 'selected' if t.type == opt else '' }}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td class="cell-edit" data-field="amount" style="display:none">
+          <input class="edit-input" name="amount" value="{{ t.amount }}" type="number" step="0.01" min="0">
+        </td>
+        <td class="cell-edit" data-field="description" style="display:none">
+          <input class="edit-input" name="description" value="{{ t.description }}">
+        </td>
+        <td class="cell-edit" data-field="category" style="display:none">
+          <input class="edit-input" name="category" value="{{ t.category }}">
+        </td>
+        <td class="cell-edit" data-field="is_impulse" style="display:none">
+          <select class="edit-input" name="is_impulse">
+            <option value="false" {{ 'selected' if not t.is_impulse else '' }}>No</option>
+            <option value="true" {{ 'selected' if t.is_impulse else '' }}>Yes</option>
+          </select>
+        </td>
+
+        {# --- action buttons --- #}
+        <td class="cell-actions">
+          <span class="btn-view">
+            <button class="btn-edit" onclick="startEdit({{ t.id }})">Edit</button>
+            <button class="btn-delete" onclick="deleteRow({{ t.id }})">Delete</button>
+          </span>
+          <span class="btn-edit-mode" style="display:none">
+            <button class="btn-save" onclick="saveRow({{ t.id }})">Save</button>
+            <button class="btn-cancel" onclick="cancelEdit({{ t.id }})">Cancel</button>
+          </span>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -37,5 +83,94 @@
     <p style="color: var(--text-secondary); font-size: 14px;">No transactions yet.</p>
   {% endif %}
 </div>
+
+<style>
+.edit-input {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.edit-input:focus { outline: none; border-color: rgba(255,255,255,0.4); }
+select.edit-input option { background: #1a1a2e; }
+.cell-actions { white-space: nowrap; }
+.btn-edit, .btn-delete, .btn-save, .btn-cancel {
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 10px;
+  margin: 0 2px;
+}
+.btn-edit  { background: rgba(255,255,255,0.1); color: inherit; }
+.btn-delete{ background: rgba(220,50,50,0.25); color: #ff7070; }
+.btn-save  { background: rgba(50,200,100,0.25); color: #6fefaa; }
+.btn-cancel{ background: rgba(255,255,255,0.08); color: inherit; }
+.btn-edit:hover   { background: rgba(255,255,255,0.18); }
+.btn-delete:hover { background: rgba(220,50,50,0.45); }
+.btn-save:hover   { background: rgba(50,200,100,0.45); }
+</style>
+
+<script>
+function startEdit(id) {
+  const row = document.getElementById('row-' + id);
+  row.querySelectorAll('.cell-view').forEach(el => el.style.display = 'none');
+  row.querySelectorAll('.cell-edit').forEach(el => el.style.display = '');
+  row.querySelector('.btn-view').style.display = 'none';
+  row.querySelector('.btn-edit-mode').style.display = '';
+}
+
+function cancelEdit(id) {
+  const row = document.getElementById('row-' + id);
+  row.querySelectorAll('.cell-view').forEach(el => el.style.display = '');
+  row.querySelectorAll('.cell-edit').forEach(el => el.style.display = 'none');
+  row.querySelector('.btn-view').style.display = '';
+  row.querySelector('.btn-edit-mode').style.display = 'none';
+}
+
+async function saveRow(id) {
+  const row = document.getElementById('row-' + id);
+  const payload = {};
+  row.querySelectorAll('.cell-edit .edit-input').forEach(input => {
+    let val = input.value;
+    if (input.name === 'amount') val = parseFloat(val);
+    else if (input.name === 'is_impulse') val = val === 'true';
+    payload[input.name] = val;
+  });
+
+  const res = await fetch('/api/transactions/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) { alert('Save failed.'); return; }
+
+  // Update view cells with new values
+  row.querySelector('[data-field="date"].cell-view').textContent = payload.date;
+  row.querySelector('[data-field="type"].cell-view').innerHTML =
+    `<span class="pill ${payload.type.toLowerCase()}">${payload.type}</span>`;
+  row.querySelector('[data-field="amount"].cell-view').textContent =
+    '€' + parseFloat(payload.amount).toFixed(2);
+  row.querySelector('[data-field="description"].cell-view').textContent = payload.description;
+  row.querySelector('[data-field="category"].cell-view').innerHTML =
+    `<span class="pill">${payload.category}</span>`;
+  row.querySelector('[data-field="is_impulse"].cell-view').innerHTML =
+    payload.is_impulse ? '<span class="pill impulse">yes</span>' : '';
+
+  cancelEdit(id);
+}
+
+async function deleteRow(id) {
+  if (!confirm('Delete this transaction?')) return;
+  const res = await fetch('/api/transactions/' + id, { method: 'DELETE' });
+  if (!res.ok) { alert('Delete failed.'); return; }
+  document.getElementById('row-' + id).remove();
+}
+</script>
 
 {% endblock %}

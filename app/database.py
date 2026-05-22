@@ -219,3 +219,29 @@ def resolve_agent_state(state_id: int) -> None:
             .values(resolved=True)
         )
         conn.commit()
+
+
+def get_transaction_by_id(tx_id: int) -> dict | None:
+    with _engine.connect() as conn:
+        result = conn.execute(select(transactions).where(transactions.c.id == tx_id))
+        row = result.fetchone()
+        return dict(row._mapping) if row else None
+
+
+_EDITABLE_FIELDS = {"amount", "description", "category", "type", "date", "is_impulse", "notes"}
+
+
+def update_transaction(tx_id: int, fields: dict) -> None:
+    safe = {k: v for k, v in fields.items() if k in _EDITABLE_FIELDS}
+    if not safe:
+        return
+    with _engine.connect() as conn:
+        conn.execute(update(transactions).where(transactions.c.id == tx_id).values(**safe))
+        conn.commit()
+
+
+def delete_transaction(tx_id: int) -> None:
+    from sqlalchemy import delete as _delete
+    with _engine.connect() as conn:
+        conn.execute(_delete(transactions).where(transactions.c.id == tx_id))
+        conn.commit()

@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from telegram import Update
 from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from app import config, database as sheets
@@ -144,3 +145,22 @@ async def financials_page(request: Request):
 @app.get("/networth")
 async def networth_page(request: Request):
     return await financials_page(request)
+
+
+@app.put("/api/transactions/{tx_id}")
+async def api_update_transaction(tx_id: int, request: Request):
+    data = await request.json()
+    tx = sheets.get_transaction_by_id(tx_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    sheets.update_transaction(tx_id, data)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/transactions/{tx_id}")
+async def api_delete_transaction(tx_id: int):
+    tx = sheets.get_transaction_by_id(tx_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    sheets.delete_transaction(tx_id)
+    return JSONResponse({"ok": True})

@@ -138,6 +138,28 @@ def _regex_parse(text: str) -> dict:
     }
 
 
+def is_bulk_message(text: str) -> bool:
+    """Return True if text contains 2+ lines that each have an amount."""
+    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+    amount_lines = [l for l in lines if re.search(r"\d+(?:[.,]\d+)?", l)]
+    return len(amount_lines) >= 2
+
+
+def parse_bulk_message(text: str) -> list[dict]:
+    """Parse each amount-bearing line as an independent transaction."""
+    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+    results = []
+    for line in lines:
+        if not re.search(r"\d+(?:[.,]\d+)?", line):
+            continue
+        try:
+            parsed = parse_message(line)
+            results.append(parsed)
+        except ValueError:
+            pass
+    return results
+
+
 def parse_message(text: str) -> dict:
     """Parse a Telegram message into a transaction dict.
 

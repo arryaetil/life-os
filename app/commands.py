@@ -3,7 +3,7 @@ from datetime import date
 from telegram import Update
 from telegram.ext import ContextTypes
 from app import database as sheets, budget as budget_module, config
-from app.parser import parse_message
+from app.parser import parse_message, is_bulk_message, parse_bulk_message
 from app.categories import (
     build_category_clarification_question,
     get_category,
@@ -48,7 +48,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await _handle_net_worth_message(update, context, text)
         return
 
-    # Priority 3: classify remaining intent
+    # Priority 3: bulk expense list (2+ lines each containing an amount)
+    if is_bulk_message(text):
+        await _handle_bulk_message(update, context, text)
+        return
+
+    # Priority 4: classify remaining intent
     intent = classify_intent(text)
 
     if intent == "lifeos_question":
@@ -356,6 +361,38 @@ async def _handle_action_request(update: Update, context: ContextTypes.DEFAULT_T
         "progress_message": f"Action requested: {text}",
     })
     await update.message.reply_text(proposal)
+
+
+async def _handle_bulk_message(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    parsed_list = parse_bulk_message(text)
+    logged = []
+    for parsed in parsed_list:
+        if parsed.get("needs_clarification"):
+            continue
+        category = parsed.get("category") or get_category(parsed["description"])
+        sheets.append_transaction(parsed, category)
+        logged.append((parsed["amount"], parsed["description"], category))
+
+    if not logged:
+        await update.message.reply_text(
+            "Couldn't parse any valid expenses from that list.\n\n"
+            "Format each line like:\n  14 kebab\n  8.50 coffee\n  5 transport"
+        )
+        return
+
+    transactions = sheets.get_all_transactions()
+    status = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)
+    total = sum(a for a, _, _ in logged)
+    lines = [f"Logged {len(logged)} expense{'s' if len(logged) != 1 else ''}:"]
+    for amount, desc, cat in logged:
+        lines.append(f"  {format_currency(amount)} — {desc} ({cat})")
+    lines.append(f"\nTotal: {format_currency(total)}")
+    pct_left = 100 - status["pct_used"]
+    lines.append(
+        f"Weekly: {format_currency(status['weekly_spent'])} / {format_currency(status['weekly_budget'])}. "
+        f"{pct_left:.0f}% left."
+    )
+    await update.message.reply_text("\n".join(lines))
 
 
 async def _handle_net_worth_message(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
