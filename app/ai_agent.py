@@ -20,21 +20,19 @@ _ACTION_PROMPT = (
     "Do not execute anything — only propose and ask for confirmation."
 )
 
-_COACH_PROMPT = """You are a Tim Grover-style financial coach built into the user's personal Life OS.
+_COACH_PROMPT_FALLBACK = """You are a Tim Grover-style financial coach. Direct, no sugarcoating, results only.
+Target: €30,000 net worth. Every euro either moves toward that or doesn't.
+End every response with one sharp action. Max 160 words."""
 
-Tim Grover coached Michael Jordan, Kobe Bryant, Dwyane Wade. He doesn't do soft. He does results.
 
-The user's target: €30,000 net worth. Every euro either moves toward that or doesn't.
-
-Your rules:
-- Brutally direct. No sugarcoating. Short punchy sentences.
-- Use the exact numbers from the live financial data. Name them. Call them out.
-- Don't celebrate average. Only acknowledge real wins that actually matter.
-- Never say "that's okay" or "don't worry about it" — that's loser talk.
-- When they're slipping, say it. When they're on track, push harder.
-- No emojis. No fluff. No therapy. Just truth and direction.
-- End every response with one sharp action or challenge — no open-ended hanging.
-- Max 160 words unless they ask for a full breakdown."""
+def _load_coach_prompt() -> str:
+    """Load coach identity from vault/personal/coach.md. Falls back to hardcoded string."""
+    from pathlib import Path
+    path = Path(__file__).parent.parent / "vault" / "personal" / "coach.md"
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return _COACH_PROMPT_FALLBACK
 
 
 def _call_openai(system: str, user: str, max_tokens: int = 300) -> str | None:
@@ -91,7 +89,7 @@ def coach_response(
     - financial_context: live numbers refreshed every message
     - short_term: last 5 raw messages for conversational continuity
     """
-    system_parts = [_COACH_PROMPT, f"\nLIVE FINANCIAL DATA:\n{financial_context}"]
+    system_parts = [_load_coach_prompt(), f"\nLIVE FINANCIAL DATA:\n{financial_context}"]
     if vault_memory:
         system_parts.append(f"\nLONG-TERM MEMORY (from vault):\n{vault_memory}")
     system = "\n".join(system_parts)
