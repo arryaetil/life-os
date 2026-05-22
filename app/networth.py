@@ -49,6 +49,8 @@ def calculate_live_net_worth_series(baseline: dict | None, transactions: list[di
             continue
         if "[UNDONE]" in (t.get("notes") or ""):
             continue
+        if t.get("tag") == "nw_excluded":
+            continue
         if t["type"] == "Income":
             net += float(t["amount"])
         elif t["type"] == "Expense":
