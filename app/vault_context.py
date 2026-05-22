@@ -20,6 +20,32 @@ _VAULT_FILES = [
     ("handoff/latest.md", 800),
 ]
 
+# Files loaded specifically for the coach (separate from general vault context)
+COACH_MEMORY_FILES = [
+    ("vault/sessions/coach-memory.md", 800),
+    ("vault/personal/goals.md", 400),
+    ("vault/personal/values.md", 300),
+]
+
+
+def load_coach_memory() -> str:
+    """Load coach-specific long-term memory files."""
+    sections = []
+    for rel_path, max_chars in COACH_MEMORY_FILES:
+        path = REPO_ROOT / rel_path
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if not text:
+            continue
+        if len(text) > max_chars:
+            text = text[:max_chars] + "\n[...truncated]"
+        sections.append(f"## {rel_path}\n{text}")
+    return "\n\n---\n\n".join(sections)
+
 MAX_TOTAL_CHARS = 8000
 
 

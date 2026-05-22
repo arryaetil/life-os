@@ -334,11 +334,12 @@ def _build_financial_context(txns: list, snap: dict | None) -> str:
 
 
 async def _handle_coach(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
-    from app.ai_agent import coach_response
+    from app.ai_agent import coach_response, update_coach_memory
+    from app.vault_context import load_coach_memory
     from app import database
 
-    # Fetch history BEFORE saving current message so it isn't included twice
-    history = database.get_recent_messages(limit=20)
+    # Fetch last 5 messages for short-term context (before saving current)
+    short_term = database.get_recent_messages(limit=5)
 
     # Save user message
     database.save_message("user", text)
@@ -347,14 +348,21 @@ async def _handle_coach(update: Update, context: ContextTypes.DEFAULT_TYPE, text
     txns = database.get_all_transactions()
     financial_context = _build_financial_context(txns, snap)
 
+    # Long-term memory from vault (compressed patterns, goals, commitments)
+    vault_memory = load_coach_memory()
+
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing"
     )
 
-    answer = coach_response(text, financial_context, history)
+    answer = coach_response(text, financial_context, short_term, vault_memory)
     database.save_message("assistant", answer)
-
     await update.message.reply_text(answer)
+
+    # Every 10 messages: compress conversation into vault memory
+    all_recent = database.get_recent_messages(limit=30)
+    if len(all_recent) % 10 == 0:
+        update_coach_memory(all_recent, vault_memory)
 
 
 async def _handle_action_request(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:

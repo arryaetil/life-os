@@ -78,13 +78,29 @@ def _call_openai_messages(messages: list[dict], max_tokens: int = 300) -> str | 
         return None
 
 
-def coach_response(message: str, financial_context: str, history: list[dict] | None = None) -> str:
-    """Respond as Tim Grover-style financial coach with live data and conversation memory."""
-    system = f"{_COACH_PROMPT}\n\nLIVE FINANCIAL DATA (refresh each message):\n{financial_context}"
+def coach_response(
+    message: str,
+    financial_context: str,
+    short_term: list[dict] | None = None,
+    vault_memory: str = "",
+) -> str:
+    """Respond as Tim Grover-style financial coach.
+
+    Context layers (cheapest → richest):
+    - vault_memory: compressed long-term patterns from coach-memory.md
+    - financial_context: live numbers refreshed every message
+    - short_term: last 5 raw messages for conversational continuity
+    """
+    system_parts = [_COACH_PROMPT, f"\nLIVE FINANCIAL DATA:\n{financial_context}"]
+    if vault_memory:
+        system_parts.append(f"\nLONG-TERM MEMORY (from vault):\n{vault_memory}")
+    system = "\n".join(system_parts)
+
     messages: list[dict] = [{"role": "system", "content": system}]
-    for h in (history or []):
+    for h in (short_term or []):
         messages.append({"role": h["role"], "content": h["content"]})
     messages.append({"role": "user", "content": message})
+
     result = _call_openai_messages(messages, max_tokens=250)
     if result:
         return result
@@ -92,6 +108,38 @@ def coach_response(message: str, financial_context: str, history: list[dict] | N
         "Can't reach the AI right now. But here's what you do: "
         "open your numbers, find the biggest waste, cut it. That's it."
     )
+
+
+_MEMORY_UPDATE_PROMPT = """You maintain the long-term memory file for a Tim Grover-style financial coach.
+
+Read the recent conversation and the current memory file. Rewrite the memory file to reflect what you now know.
+
+Rules:
+- Keep each section concise — bullet points, specific numbers, no fluff
+- Overwrite stale info with fresh observations
+- Only record things that are genuinely useful to carry forward
+- Total file must stay under 500 words
+- Keep the exact markdown structure with the same section headers
+- Do not add commentary or explanation — just the updated file content"""
+
+
+def update_coach_memory(recent_messages: list[dict], current_memory: str) -> None:
+    """Compress recent conversation into coach-memory.md. Called every 10 messages."""
+    from pathlib import Path
+    repo_root = Path(__file__).parent.parent
+
+    conversation = "\n".join(
+        f"{m['role'].upper()}: {m['content']}" for m in recent_messages
+    )
+    user_msg = (
+        f"CURRENT MEMORY FILE:\n{current_memory}\n\n"
+        f"RECENT CONVERSATION:\n{conversation}\n\n"
+        "Rewrite the memory file with updated insights."
+    )
+    result = _call_openai(_MEMORY_UPDATE_PROMPT, user_msg, max_tokens=600)
+    if result:
+        memory_path = repo_root / "vault" / "sessions" / "coach-memory.md"
+        memory_path.write_text(result, encoding="utf-8")
 
 
 def answer_lifeos_question(question: str, structured_data: str = "") -> str:

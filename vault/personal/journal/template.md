@@ -1,0 +1,20 @@
+# {{date}}
+
+## Today
+_What happened. What you did._
+
+- 
+
+## Money
+_Any notable spending, earning, or financial decisions today._
+
+- 
+
+## Energy
+_How did the day feel? High/medium/low and why._
+
+
+## Tomorrow
+_One thing that matters._
+
+- 
