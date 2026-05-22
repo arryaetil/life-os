@@ -42,5 +42,12 @@ None recorded yet.
 ## Context
 _Anything else the coach should carry into every conversation._
 
-- Goal: €30,000 net worth
-- System started: 2026-05-16 at €15,000 baseline
+- **Name:** Arrya, 22, Netherlands
+- **Goal:** €30,000 net worth by end of 2026 — started at ~€16K in May 2026
+- **System started:** 2026-05-16
+- **Role:** Solution Engineer at ETIL Research Group; building toward AI consultancy
+- **Core drive:** wealth, leverage, ownership — financially free before 30
+- **Active builds:** LifeOS, AI Solution Engineering consultancy, CloudCast Analytics
+- **Fitness goal:** athletic/combat-sports capable; currently 76 kg
+- **Mental model:** systems over goals, compounding, leverage, deep work, skill stacking
+- **Full profile:** [[personal/profile]]

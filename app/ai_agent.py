@@ -124,9 +124,13 @@ Rules:
 
 
 def update_coach_memory(recent_messages: list[dict], current_memory: str) -> None:
-    """Compress recent conversation into coach-memory.md. Called every 10 messages."""
+    """Compress recent conversation into persistent coach memory.
+
+    Writes to DB (permanent across redeploys) and syncs back to
+    vault/sessions/coach-memory.md so Obsidian stays up to date.
+    """
     from pathlib import Path
-    repo_root = Path(__file__).parent.parent
+    from app.database import set_vault_memory
 
     conversation = "\n".join(
         f"{m['role'].upper()}: {m['content']}" for m in recent_messages
@@ -138,8 +142,14 @@ def update_coach_memory(recent_messages: list[dict], current_memory: str) -> Non
     )
     result = _call_openai(_MEMORY_UPDATE_PROMPT, user_msg, max_tokens=600)
     if result:
-        memory_path = repo_root / "vault" / "sessions" / "coach-memory.md"
-        memory_path.write_text(result, encoding="utf-8")
+        # Primary: save to DB — survives redeploys
+        set_vault_memory("coach_memory", result)
+        # Secondary: sync to file so Obsidian reflects latest state
+        memory_path = Path(__file__).parent.parent / "vault" / "sessions" / "coach-memory.md"
+        try:
+            memory_path.write_text(result, encoding="utf-8")
+        except OSError:
+            pass
 
 
 def answer_lifeos_question(question: str, structured_data: str = "") -> str:

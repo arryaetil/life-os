@@ -29,9 +29,26 @@ COACH_MEMORY_FILES = [
 
 
 def load_coach_memory() -> str:
-    """Load coach-specific long-term memory files."""
+    """Load coach long-term memory. DB is authoritative; files are fallback."""
     sections = []
-    for rel_path, max_chars in COACH_MEMORY_FILES:
+
+    # coach-memory: DB first (survives redeploys), file fallback
+    try:
+        from app.database import get_vault_memory
+        db_memory = get_vault_memory("coach_memory")
+    except Exception:
+        db_memory = None
+
+    if db_memory:
+        sections.append(f"## Coach Memory\n{db_memory[:800]}")
+    else:
+        path = REPO_ROOT / "vault" / "sessions" / "coach-memory.md"
+        if path.exists():
+            text = path.read_text(encoding="utf-8").strip()[:800]
+            sections.append(f"## Coach Memory\n{text}")
+
+    # goals and values always from file (user edits these in Obsidian)
+    for rel_path, max_chars in COACH_MEMORY_FILES[1:]:
         path = REPO_ROOT / rel_path
         if not path.exists():
             continue
@@ -44,6 +61,7 @@ def load_coach_memory() -> str:
         if len(text) > max_chars:
             text = text[:max_chars] + "\n[...truncated]"
         sections.append(f"## {rel_path}\n{text}")
+
     return "\n\n---\n\n".join(sections)
 
 MAX_TOTAL_CHARS = 8000

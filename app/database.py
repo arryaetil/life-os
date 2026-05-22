@@ -73,9 +73,24 @@ conversations = Table(
     Column("content", String),
 )
 
+vault_memory = Table(
+    "vault_memory",
+    _metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("key", String, unique=True),
+    Column("content", String),
+    Column("updated_at", String),
+)
+
 
 def init_db() -> None:
     _metadata.create_all(_engine)
+    # Seed coach memory from file if DB has no entry yet
+    if get_vault_memory("coach_memory") is None:
+        from pathlib import Path
+        memory_path = Path(__file__).parent.parent / "vault" / "sessions" / "coach-memory.md"
+        if memory_path.exists():
+            set_vault_memory("coach_memory", memory_path.read_text(encoding="utf-8"))
 
 def append_transaction(parsed: dict, category: str) -> int:
     with _engine.connect() as conn:
@@ -254,6 +269,34 @@ def delete_transaction(tx_id: int) -> None:
     from sqlalchemy import delete as _delete
     with _engine.connect() as conn:
         conn.execute(_delete(transactions).where(transactions.c.id == tx_id))
+        conn.commit()
+
+
+def get_vault_memory(key: str) -> str | None:
+    with _engine.connect() as conn:
+        result = conn.execute(
+            select(vault_memory).where(vault_memory.c.key == key)
+        )
+        row = result.fetchone()
+        return dict(row._mapping)["content"] if row else None
+
+
+def set_vault_memory(key: str, content: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _engine.connect() as conn:
+        existing = conn.execute(
+            select(vault_memory).where(vault_memory.c.key == key)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                update(vault_memory)
+                .where(vault_memory.c.key == key)
+                .values(content=content, updated_at=now)
+            )
+        else:
+            conn.execute(
+                insert(vault_memory).values(key=key, content=content, updated_at=now)
+            )
         conn.commit()
 
 
