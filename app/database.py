@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, Boolean,
-    MetaData, Table, insert, select, update, desc,
+    MetaData, Table, insert, select, update, desc, text,
 )
 from app import config
 
@@ -63,6 +63,16 @@ net_worth_snapshots = Table(
     Column("total_net_worth", Float),
     Column("notes", String, default=""),
 )
+
+conversations = Table(
+    "conversations",
+    _metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("timestamp", String),
+    Column("role", String),     # 'user' or 'assistant'
+    Column("content", String),
+)
+
 
 def init_db() -> None:
     _metadata.create_all(_engine)
@@ -245,3 +255,20 @@ def delete_transaction(tx_id: int) -> None:
     with _engine.connect() as conn:
         conn.execute(_delete(transactions).where(transactions.c.id == tx_id))
         conn.commit()
+
+
+def save_message(role: str, content: str) -> None:
+    ts = datetime.now(timezone.utc).isoformat()
+    with _engine.connect() as conn:
+        conn.execute(insert(conversations).values(timestamp=ts, role=role, content=content))
+        conn.commit()
+
+
+def get_recent_messages(limit: int = 20) -> list[dict]:
+    """Return the most recent `limit` messages ordered oldest-first."""
+    with _engine.connect() as conn:
+        result = conn.execute(
+            select(conversations).order_by(desc(conversations.c.id)).limit(limit)
+        )
+        rows = [dict(r._mapping) for r in result]
+        return list(reversed(rows))

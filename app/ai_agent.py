@@ -59,15 +59,38 @@ def _call_openai(system: str, user: str, max_tokens: int = 300) -> str | None:
         return None
 
 
-def coach_response(message: str, financial_context: str) -> str:
-    """Respond as Tim Grover-style financial coach with live financial data."""
-    user_msg = f"LIVE FINANCIAL DATA:\n{financial_context}\n\nUser message: {message}"
-    result = _call_openai(_COACH_PROMPT, user_msg, max_tokens=250)
+def _call_openai_messages(messages: list[dict], max_tokens: int = 300) -> str | None:
+    from app import config
+    if not config.OPENAI_API_KEY:
+        return None
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=config.OPENAI_API_KEY)
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as exc:
+        _log.warning("OpenAI call failed: %s", exc)
+        return None
+
+
+def coach_response(message: str, financial_context: str, history: list[dict] | None = None) -> str:
+    """Respond as Tim Grover-style financial coach with live data and conversation memory."""
+    system = f"{_COACH_PROMPT}\n\nLIVE FINANCIAL DATA (refresh each message):\n{financial_context}"
+    messages: list[dict] = [{"role": "system", "content": system}]
+    for h in (history or []):
+        messages.append({"role": h["role"], "content": h["content"]})
+    messages.append({"role": "user", "content": message})
+    result = _call_openai_messages(messages, max_tokens=250)
     if result:
         return result
     return (
-        "Can't reach the AI right now. But here's what you do: open your numbers, "
-        "find the biggest waste, and cut it. That's it."
+        "Can't reach the AI right now. But here's what you do: "
+        "open your numbers, find the biggest waste, cut it. That's it."
     )
 
 

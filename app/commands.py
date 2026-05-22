@@ -53,45 +53,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await _handle_bulk_message(update, context, text)
         return
 
-    # Priority 4: classify remaining intent
+    # Priority 4: single expense / income — short message with a clear amount
     intent = classify_intent(text)
-
-    if intent == "lifeos_question":
-        await _handle_lifeos_question(update, context, text)
+    if intent == "finance_transaction":
+        await _handle_transaction(update, context, text)
         return
 
-    if intent == "action_request":
-        await _handle_action_request(update, context, text)
-        return
+    # Everything else → coach (questions, conversation, coaching, action requests)
+    await _handle_coach(update, context, text)
 
-    # finance_transaction or unknown: attempt finance parse
+
+async def _handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     try:
         parsed = parse_message(text)
     except ValueError:
-        if intent == "unknown":
-            await update.message.reply_text(
-                "I'm not sure what you mean. Could you clarify?\n\n"
-                "• Log an expense: `14 kebab` or `spent 8.50 coffee`\n"
-                "• Ask a question: `What is my net worth?`\n"
-                "• Agent reply: `A`, `B`, or `done`"
-            )
-        else:
-            await update.message.reply_text(
-                "I couldn't find an amount in that message.\n\n"
-                "Try something like:\n"
-                "  14 kebab\n"
-                "  spent 8.50 on coffee\n"
-                "  +314 DUO income"
-            )
+        await update.message.reply_text(
+            "Couldn't find an amount. Try: `14 kebab` or `8,50 koffie`"
+        )
         return
 
-    # AI requested clarification (low confidence or missing amount)
     if parsed.get("needs_clarification"):
         await update.message.reply_text(
-            parsed.get("clarification_question") or
-            "Could you be more specific?\n\n"
-            "• Log an expense: `14 kebab` or `8,50 koffie`\n"
-            "• Income: `+314 DUO` or `150 gekregen van oom`"
+            parsed.get("clarification_question") or "Could you be more specific?"
         )
         return
 
@@ -107,17 +90,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     status = budget_module.calculate_weekly_status(transactions, config.WEEKLY_BUDGET)
     pct_left = 100 - status["pct_used"]
     if pct_left < 10:
-        budget_note = "⚠️ Almost out of budget!"
+        budget_note = "Almost out of budget!"
     elif pct_left < 25:
         budget_note = "Getting close to your limit."
     else:
         budget_note = f"{pct_left:.0f}% of weekly budget left."
-    reply = (
-        f"Got it — {format_currency(parsed['amount'])} on {parsed['description']} ({category}).\n"
+    await update.message.reply_text(
+        f"Logged — {format_currency(parsed['amount'])} on {parsed['description']} ({category}).\n"
         f"Weekly: {format_currency(status['weekly_spent'])} / {format_currency(status['weekly_budget'])}. "
         f"{budget_note}"
     )
-    await update.message.reply_text(reply)
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -332,38 +314,46 @@ def _build_financial_context(txns: list, snap: dict | None) -> str:
 
         active = [t for t in txns if "[UNDONE]" not in (t.get("notes") or "")]
         recent = sorted(active, key=lambda t: t.get("timestamp", ""), reverse=True)[:5]
-
         top_cats = sorted(monthly["by_category"].items(), key=lambda x: -x[1])[:5]
 
         lines = [
             f"NET WORTH: €{live_nw:,.2f} | Goal: €30,000 ({live_nw / 30_000 * 100:.1f}% there)",
             f"WEEKLY BUDGET: €{weekly['weekly_spent']:.2f} spent / €{weekly['weekly_budget']:.2f} ({weekly['pct_used']:.0f}% used) | €{weekly['remaining']:.2f} left",
-            f"THIS MONTH — Spent: €{monthly['monthly_spent']:.2f} | Income: €{monthly['monthly_income']:.2f} | Net: €{monthly['net_cashflow']:.2f}",
+            f"THIS MONTH — Spent: €{monthly['monthly_spent']:.2f} | Income: €{monthly['monthly_income']:.2f} | Net cashflow: €{monthly['net_cashflow']:.2f}",
             "",
             "SPENDING BY CATEGORY (this month):",
         ]
         for cat, amt in top_cats:
             lines.append(f"  {cat}: €{amt:.2f}")
-
         lines += ["", "LAST 5 TRANSACTIONS:"]
         for t in recent:
             lines.append(f"  {t['date']} | €{t['amount']:.2f} | {t['description']} ({t['category']})")
-
         return "\n".join(lines)
     except Exception:
         return "Financial data unavailable."
 
 
-async def _handle_lifeos_question(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+async def _handle_coach(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     from app.ai_agent import coach_response
     from app import database
+
+    # Fetch history BEFORE saving current message so it isn't included twice
+    history = database.get_recent_messages(limit=20)
+
+    # Save user message
+    database.save_message("user", text)
 
     snap = database.get_latest_net_worth_snapshot()
     txns = database.get_all_transactions()
     financial_context = _build_financial_context(txns, snap)
 
-    await update.message.reply_text("...")
-    answer = coach_response(text, financial_context)
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id, action="typing"
+    )
+
+    answer = coach_response(text, financial_context, history)
+    database.save_message("assistant", answer)
+
     await update.message.reply_text(answer)
 
 
