@@ -53,13 +53,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await _handle_bulk_message(update, context, text)
         return
 
-    # Priority 4: single expense / income — short message with a clear amount
+    # Priority 4: vault update request
     intent = classify_intent(text)
+    if intent == "vault_update":
+        await _handle_vault_update(update, context, text)
+        return
+
+    # Priority 5: single expense / income — short message with a clear amount
     if intent == "finance_transaction":
         await _handle_transaction(update, context, text)
         return
 
-    # Everything else → coach (questions, conversation, coaching, action requests)
+    # Everything else → coach
     await _handle_coach(update, context, text)
 
 
@@ -331,6 +336,53 @@ def _build_financial_context(txns: list, snap: dict | None) -> str:
         return "\n".join(lines)
     except Exception:
         return "Financial data unavailable."
+
+
+async def _handle_vault_update(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    from pathlib import Path
+    from app import database
+
+    lower = text.lower()
+
+    # Determine target file
+    if any(w in lower for w in ("goal", "goals")):
+        db_key = "goals"
+        file_path = Path(__file__).parent.parent / "vault" / "personal" / "goals.md"
+        label = "goals"
+    elif any(w in lower for w in ("value", "values", "principle")):
+        db_key = "values"
+        file_path = Path(__file__).parent.parent / "vault" / "personal" / "values.md"
+        label = "values"
+    else:
+        db_key = "coach_memory"
+        file_path = Path(__file__).parent.parent / "vault" / "sessions" / "coach-memory.md"
+        label = "notes"
+
+    # Extract content: strip the trigger phrase, keep the rest
+    import re
+    content = re.sub(
+        r"^(add to my (goals?|values?|vault|notes?|profile)|"
+        r"update my (goals?|values?|vault|profile)|"
+        r"note that|remember that|save (this|that)|new goal[:\s]*|new value[:\s]*|new principle[:\s]*)[:\s]*",
+        "", text, flags=re.IGNORECASE,
+    ).strip(" .:–-")
+
+    if not content:
+        await update.message.reply_text("What do you want to add?")
+        return
+
+    # Load current content from DB, append new item
+    current = database.get_vault_memory(db_key) or file_path.read_text(encoding="utf-8")
+    updated = current.rstrip() + f"\n- {content}\n"
+
+    # Save to DB (permanent) and sync to file
+    database.set_vault_memory(db_key, updated)
+    try:
+        file_path.write_text(updated, encoding="utf-8")
+    except OSError:
+        pass
+
+    await update.message.reply_text(f"Added to {label}: {content}")
 
 
 async def _handle_coach(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:

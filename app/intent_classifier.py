@@ -23,6 +23,13 @@ _QUESTION_PATS = [
     re.compile(r"\?$"),
 ]
 
+_VAULT_UPDATE_PATS = [
+    re.compile(r"\b(add to my (goals?|values?|vault|notes?|profile))\b", re.IGNORECASE),
+    re.compile(r"\b(update my (goals?|values?|vault|profile))\b", re.IGNORECASE),
+    re.compile(r"\b(note that|remember that|save (this|that)|add this to)\b", re.IGNORECASE),
+    re.compile(r"\b(new goal|new value|new principle)\b", re.IGNORECASE),
+]
+
 _COACH_PATS = [
     re.compile(r"\b(am i (doing|on track|okay|good|spending)|coach me|roast me)\b", re.IGNORECASE),
     re.compile(r"\b(analyze|breakdown|review|evaluate)\b.*\b(spend|budget|finance|money|expense)\b", re.IGNORECASE),
@@ -48,6 +55,11 @@ def classify_intent(text: str) -> str:
     # Short messages with a clear amount (≤ 6 words) → finance transaction
     if _AMOUNT_PAT.search(stripped) and len(stripped.split()) <= 6:
         return "finance_transaction"
+
+    # Vault update patterns (check first — highest priority after transactions)
+    for pat in _VAULT_UPDATE_PATS:
+        if pat.search(stripped):
+            return "vault_update"
 
     # Coaching / financial reflection patterns (check before generic question words)
     for pat in _COACH_PATS:

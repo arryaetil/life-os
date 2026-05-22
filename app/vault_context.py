@@ -47,15 +47,21 @@ def load_coach_memory() -> str:
             text = path.read_text(encoding="utf-8").strip()[:800]
             sections.append(f"## Coach Memory\n{text}")
 
-    # goals and values always from file (user edits these in Obsidian)
-    for rel_path, max_chars in COACH_MEMORY_FILES[1:]:
-        path = REPO_ROOT / rel_path
-        if not path.exists():
-            continue
+    # goals and values: DB authoritative, file fallback
+    for db_key, rel_path, max_chars in [
+        ("goals",  "vault/personal/goals.md",  1200),
+        ("values", "vault/personal/values.md", 1800),
+    ]:
         try:
-            text = path.read_text(encoding="utf-8").strip()
-        except OSError:
-            continue
+            text = get_vault_memory(db_key)
+        except Exception:
+            text = None
+        if not text:
+            path = REPO_ROOT / rel_path
+            try:
+                text = path.read_text(encoding="utf-8").strip() if path.exists() else None
+            except OSError:
+                text = None
         if not text:
             continue
         if len(text) > max_chars:

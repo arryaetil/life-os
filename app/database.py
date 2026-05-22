@@ -85,12 +85,16 @@ vault_memory = Table(
 
 def init_db() -> None:
     _metadata.create_all(_engine)
-    # Seed coach memory from file if DB has no entry yet
-    if get_vault_memory("coach_memory") is None:
-        from pathlib import Path
-        memory_path = Path(__file__).parent.parent / "vault" / "sessions" / "coach-memory.md"
-        if memory_path.exists():
-            set_vault_memory("coach_memory", memory_path.read_text(encoding="utf-8"))
+    from pathlib import Path
+    root = Path(__file__).parent.parent
+    _seed_vault = [
+        ("coach_memory", root / "vault" / "sessions" / "coach-memory.md"),
+        ("goals",        root / "vault" / "personal" / "goals.md"),
+        ("values",       root / "vault" / "personal" / "values.md"),
+    ]
+    for key, path in _seed_vault:
+        if get_vault_memory(key) is None and path.exists():
+            set_vault_memory(key, path.read_text(encoding="utf-8"))
 
 def append_transaction(parsed: dict, category: str) -> int:
     with _engine.connect() as conn:
