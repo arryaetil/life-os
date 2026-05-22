@@ -180,7 +180,7 @@ pytest tests/test_parser.py -v  # Specific file
 | 1.1 | Net Worth tracker | DONE |
 | 1.2 | Portfolio/accounts tracker | NOT STARTED |
 | 1.3 | Screenshot/CSV portfolio import | NOT STARTED |
-| 1.4 | Agent control layer + Telegram notifications | NOT STARTED |
+| 1.4 | Agent control layer + Telegram notifications | DONE |
 | 2.0 | Goals tracker | NOT STARTED |
 | 3.0 | Health/workout tracker | NOT STARTED |
 | 4.0 | Unified LifeOS dashboard | NOT STARTED |
