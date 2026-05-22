@@ -323,28 +323,47 @@ async def cmd_handoff(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text("\n".join(lines))
 
 
+def _build_financial_context(txns: list, snap: dict | None) -> str:
+    """Build a rich financial snapshot string for the coach."""
+    try:
+        live_nw = calculate_live_net_worth(snap, txns)
+        weekly = budget_module.calculate_weekly_status(txns, config.WEEKLY_BUDGET)
+        monthly = budget_module.calculate_monthly_summary(txns)
+
+        active = [t for t in txns if "[UNDONE]" not in (t.get("notes") or "")]
+        recent = sorted(active, key=lambda t: t.get("timestamp", ""), reverse=True)[:5]
+
+        top_cats = sorted(monthly["by_category"].items(), key=lambda x: -x[1])[:5]
+
+        lines = [
+            f"NET WORTH: €{live_nw:,.2f} | Goal: €30,000 ({live_nw / 30_000 * 100:.1f}% there)",
+            f"WEEKLY BUDGET: €{weekly['weekly_spent']:.2f} spent / €{weekly['weekly_budget']:.2f} ({weekly['pct_used']:.0f}% used) | €{weekly['remaining']:.2f} left",
+            f"THIS MONTH — Spent: €{monthly['monthly_spent']:.2f} | Income: €{monthly['monthly_income']:.2f} | Net: €{monthly['net_cashflow']:.2f}",
+            "",
+            "SPENDING BY CATEGORY (this month):",
+        ]
+        for cat, amt in top_cats:
+            lines.append(f"  {cat}: €{amt:.2f}")
+
+        lines += ["", "LAST 5 TRANSACTIONS:"]
+        for t in recent:
+            lines.append(f"  {t['date']} | €{t['amount']:.2f} | {t['description']} ({t['category']})")
+
+        return "\n".join(lines)
+    except Exception:
+        return "Financial data unavailable."
+
+
 async def _handle_lifeos_question(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
-    from app.ai_agent import answer_lifeos_question
+    from app.ai_agent import coach_response
     from app import database
 
-    structured = ""
-    finance_kw = {"spend", "spent", "budget", "net worth", "goal", "30k", "money", "worth"}
-    if any(kw in text.lower() for kw in finance_kw):
-        try:
-            snap = database.get_latest_net_worth_snapshot()
-            txns = database.get_all_transactions()
-            live_nw = calculate_live_net_worth(snap, txns)
-            weekly = budget_module.calculate_weekly_status(txns, config.WEEKLY_BUDGET)
-            structured = (
-                f"Live net worth: €{live_nw:,.2f}\n"
-                f"Weekly spend: €{weekly['weekly_spent']:.2f} / €{weekly['weekly_budget']:.2f}\n"
-                f"Goal progress: {live_nw / 30000 * 100:.1f}% toward €30,000"
-            )
-        except Exception:
-            pass
+    snap = database.get_latest_net_worth_snapshot()
+    txns = database.get_all_transactions()
+    financial_context = _build_financial_context(txns, snap)
 
-    await update.message.reply_text("🤔 Let me check the vault...")
-    answer = answer_lifeos_question(text, structured)
+    await update.message.reply_text("...")
+    answer = coach_response(text, financial_context)
     await update.message.reply_text(answer)
 
 

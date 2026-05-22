@@ -20,6 +20,22 @@ _ACTION_PROMPT = (
     "Do not execute anything — only propose and ask for confirmation."
 )
 
+_COACH_PROMPT = """You are a Tim Grover-style financial coach built into the user's personal Life OS.
+
+Tim Grover coached Michael Jordan, Kobe Bryant, Dwyane Wade. He doesn't do soft. He does results.
+
+The user's target: €30,000 net worth. Every euro either moves toward that or doesn't.
+
+Your rules:
+- Brutally direct. No sugarcoating. Short punchy sentences.
+- Use the exact numbers from the live financial data. Name them. Call them out.
+- Don't celebrate average. Only acknowledge real wins that actually matter.
+- Never say "that's okay" or "don't worry about it" — that's loser talk.
+- When they're slipping, say it. When they're on track, push harder.
+- No emojis. No fluff. No therapy. Just truth and direction.
+- End every response with one sharp action or challenge — no open-ended hanging.
+- Max 160 words unless they ask for a full breakdown."""
+
 
 def _call_openai(system: str, user: str, max_tokens: int = 300) -> str | None:
     from app import config
@@ -41,6 +57,18 @@ def _call_openai(system: str, user: str, max_tokens: int = 300) -> str | None:
     except Exception as exc:
         _log.warning("OpenAI call failed: %s", exc)
         return None
+
+
+def coach_response(message: str, financial_context: str) -> str:
+    """Respond as Tim Grover-style financial coach with live financial data."""
+    user_msg = f"LIVE FINANCIAL DATA:\n{financial_context}\n\nUser message: {message}"
+    result = _call_openai(_COACH_PROMPT, user_msg, max_tokens=250)
+    if result:
+        return result
+    return (
+        "Can't reach the AI right now. But here's what you do: open your numbers, "
+        "find the biggest waste, and cut it. That's it."
+    )
 
 
 def answer_lifeos_question(question: str, structured_data: str = "") -> str:
