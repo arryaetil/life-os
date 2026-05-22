@@ -439,6 +439,20 @@ async def _handle_net_worth_message(update: Update, context: ContextTypes.DEFAUL
     await update.message.reply_text("\n".join(lines))
 
 
+async def cmd_nw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from app import database
+    snap = database.get_latest_net_worth_snapshot()
+    txns = database.get_all_transactions()
+    live_nw = calculate_live_net_worth(snap, txns)
+    progress = live_nw / 30_000 * 100
+    remaining = 30_000 - live_nw
+    await update.message.reply_text(
+        f"Net worth: {format_currency(live_nw)}\n"
+        f"Goal: {progress:.1f}% to €30k\n"
+        f"Remaining: {format_currency(remaining)}"
+    )
+
+
 async def cmd_networth(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from app import database
     snap = database.get_latest_net_worth_snapshot()

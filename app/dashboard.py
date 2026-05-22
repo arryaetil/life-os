@@ -15,7 +15,7 @@ _ptb_app = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _ptb_app
-    sheets.init_db()          # Create table if not exists
+    sheets.init_db()
     _ptb_app = create_ptb_app()
     await _ptb_app.initialize()
     await _ptb_app.start()
@@ -26,8 +26,13 @@ async def lifespan(app: FastAPI):
             secret_token=config.TELEGRAM_WEBHOOK_SECRET,
         )
 
+    from app.scheduler import create_scheduler
+    _scheduler = create_scheduler()
+    _scheduler.start()
+
     yield
 
+    _scheduler.shutdown(wait=False)
     await _ptb_app.stop()
     await _ptb_app.shutdown()
 

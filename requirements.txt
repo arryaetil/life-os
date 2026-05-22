@@ -10,3 +10,5 @@ anthropic==0.26.1
 httpx==0.25.2
 pytest==8.2.1
 pytest-asyncio==0.23.6
+apscheduler==3.10.4
+pytz==2024.1
