@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
@@ -184,3 +186,88 @@ def test_networth_page_shows_activity_feed_not_snapshot_table(client):
     assert "duo" in response.text
     assert "savings" not in response.text
     assert "Baseline" in response.text
+
+
+def test_api_categories_returns_list(client):
+    with patch("app.dashboard.get_available_categories", return_value=["Food", "Transport", "Other"]):
+        response = client.get("/api/categories")
+    assert response.status_code == 200
+    assert response.json() == ["Food", "Transport", "Other"]
+
+
+def test_api_create_transaction_with_explicit_category(client):
+    with patch("app.dashboard.sheets.append_transaction", return_value=42) as mock_append:
+        response = client.post("/api/transactions", json={
+            "type": "Expense",
+            "amount": 7.5,
+            "description": "groceries",
+            "category": "Food",
+            "date": "2026-06-09",
+            "is_impulse": False,
+        })
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "id": 42, "category": "Food"}
+
+    parsed, category = mock_append.call_args[0]
+    assert category == "Food"
+    assert parsed["type"] == "Expense"
+    assert parsed["amount"] == 7.5
+    assert parsed["description"] == "groceries"
+    assert parsed["date"] == "2026-06-09"
+    assert parsed["week_start"] == "2026-06-08"
+    assert parsed["month"] == "2026-06"
+    assert parsed["is_impulse"] is False
+
+
+def test_api_create_transaction_auto_categorizes_when_blank(client):
+    with patch("app.dashboard.sheets.append_transaction", return_value=43) as mock_append, \
+         patch("app.dashboard.get_category", return_value="Transport") as mock_get_category:
+        response = client.post("/api/transactions", json={
+            "type": "Expense",
+            "amount": 20.40,
+            "description": "fuel",
+            "category": "",
+            "date": "2026-06-09",
+        })
+
+    assert response.status_code == 200
+    assert response.json()["category"] == "Transport"
+    mock_get_category.assert_called_once_with("fuel")
+    _, category = mock_append.call_args[0]
+    assert category == "Transport"
+
+
+def test_api_create_transaction_defaults_to_today_when_no_date(client):
+    with patch("app.dashboard.sheets.append_transaction", return_value=44) as mock_append:
+        response = client.post("/api/transactions", json={
+            "type": "Income",
+            "amount": 100.0,
+            "description": "freelance",
+            "category": "Income",
+        })
+
+    assert response.status_code == 200
+    parsed, _ = mock_append.call_args[0]
+    assert parsed["date"] == datetime.now().strftime("%Y-%m-%d")
+
+
+def test_api_create_transaction_rejects_non_positive_amount(client):
+    response = client.post("/api/transactions", json={
+        "type": "Expense", "amount": 0, "description": "free thing", "category": "Other",
+    })
+    assert response.status_code == 400
+
+
+def test_api_create_transaction_rejects_missing_description(client):
+    response = client.post("/api/transactions", json={
+        "type": "Expense", "amount": 5.0, "description": "  ", "category": "Other",
+    })
+    assert response.status_code == 400
+
+
+def test_api_create_transaction_rejects_invalid_type(client):
+    response = client.post("/api/transactions", json={
+        "type": "Bogus", "amount": 5.0, "description": "x", "category": "Other",
+    })
+    assert response.status_code == 400

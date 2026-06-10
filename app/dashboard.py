@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime
 from telegram import Update
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import JSONResponse
@@ -7,8 +8,11 @@ from fastapi.staticfiles import StaticFiles
 from app import config, database as sheets
 from app import budget as budget_module
 from app.bot import create_ptb_app
-from app.utils import format_currency, budget_color
+from app.utils import format_currency, budget_color, get_week_start, get_month
 from app import networth as nw_module
+from app.categories import get_category, get_available_categories
+
+VALID_TRANSACTION_TYPES = {"Expense", "Income", "Transfer", "Investment"}
 
 _ptb_app = None
 
@@ -174,3 +178,52 @@ async def api_delete_transaction(tx_id: int):
         raise HTTPException(status_code=404, detail="Transaction not found")
     sheets.delete_transaction(tx_id)
     return JSONResponse({"ok": True})
+
+
+@app.get("/api/categories")
+async def api_get_categories():
+    return JSONResponse(get_available_categories())
+
+
+@app.post("/api/transactions")
+async def api_create_transaction(request: Request):
+    data = await request.json()
+
+    try:
+        amount = float(data.get("amount"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Amount must be a number")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+
+    tx_type = data.get("type", "Expense")
+    if tx_type not in VALID_TRANSACTION_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid transaction type")
+
+    description = (data.get("description") or "").strip()
+    if not description:
+        raise HTTPException(status_code=400, detail="Description is required")
+
+    date_str = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+    try:
+        tx_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date")
+
+    category = (data.get("category") or "").strip()
+    if not category:
+        category = get_category(description)
+
+    parsed = {
+        "timestamp": datetime.combine(tx_date, datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S"),
+        "date": tx_date.strftime("%Y-%m-%d"),
+        "week_start": get_week_start(tx_date).strftime("%Y-%m-%d"),
+        "month": get_month(tx_date),
+        "type": tx_type,
+        "amount": amount,
+        "description": description,
+        "is_impulse": bool(data.get("is_impulse", False)),
+    }
+
+    tx_id = sheets.append_transaction(parsed, category)
+    return JSONResponse({"ok": True, "id": tx_id, "category": category})
