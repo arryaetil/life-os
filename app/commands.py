@@ -626,3 +626,69 @@ async def _send_confirmation_preview(update: Update, transactions: list) -> None
         )
     lines.append("\nReply 'yes' to log all, 'no' to cancel, or tell me which ones to leave out.")
     await update.message.reply_text("\n".join(lines))
+
+
+async def _handle_image_session(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+    session = context.user_data["image_session"]
+
+    if not session["awaiting_confirmation"]:
+        cursor = session["cursor"]
+        idx, _ = session["clarifications"][cursor]
+        tx = session["transactions"][idx]
+
+        result = _resolve_clarification(tx, text)
+        if result.get("skip"):
+            session["transactions"][idx]["_skip"] = True
+        else:
+            session["transactions"][idx]["description"] = result["description"]
+            session["transactions"][idx]["category"] = result["category"]
+
+        session["cursor"] += 1
+
+        if session["cursor"] < len(session["clarifications"]):
+            _, next_question = session["clarifications"][session["cursor"]]
+            await update.message.reply_text(next_question)
+        else:
+            session["awaiting_confirmation"] = True
+            active = [t for t in session["transactions"] if not t.get("_skip")]
+            await _send_confirmation_preview(update, active)
+        return
+
+    # Awaiting confirmation
+    active = [t for t in session["transactions"] if not t.get("_skip")]
+    action, skip_indices = _resolve_confirmation(active, text)
+
+    if action == "cancel":
+        del context.user_data["image_session"]
+        await update.message.reply_text("Cancelled.")
+        return
+
+    final_skip = set(skip_indices) if action == "skip_some" else set()
+    logged = []
+    skipped = []
+
+    for i, tx in enumerate(active):
+        if i in final_skip:
+            skipped.append(tx)
+            continue
+        category = tx.get("category") or get_category(tx["description"])
+        sheets.append_transaction(tx, category)
+        logged.append(tx)
+
+    del context.user_data["image_session"]
+
+    all_txns = sheets.get_all_transactions()
+    status = budget_module.calculate_weekly_status(all_txns, config.WEEKLY_BUDGET)
+    pct_left = 100 - status["pct_used"]
+
+    lines = [f"Logged {len(logged)} transaction{'s' if len(logged) != 1 else ''}."]
+    if skipped:
+        skipped_str = ", ".join(
+            f"{t['description']} (-€{float(t['amount']):.2f})" for t in skipped
+        )
+        lines.append(f"Skipped: {skipped_str}")
+    lines.append(
+        f"Weekly: {format_currency(status['weekly_spent'])} / "
+        f"{format_currency(status['weekly_budget'])}. {pct_left:.0f}% left."
+    )
+    await update.message.reply_text("\n".join(lines))
