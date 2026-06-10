@@ -1,8 +1,14 @@
 import re
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, date as date_type
 from app.utils import get_week_start, get_month
+from app import config
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 _log = logging.getLogger(__name__)
 
@@ -204,3 +210,107 @@ def parse_message(text: str) -> dict:
 
     parsed.update(time_fields)
     return parsed
+
+
+_IMAGE_PROMPT = """You are a personal finance assistant parsing a Dutch banking app screenshot.
+
+Today's date is {today}. Yesterday was {yesterday}.
+
+Extract ALL visible transactions. Resolve relative date headers to real dates:
+- "Today" → {today}
+- "Yesterday" → {yesterday}
+- Any explicit date like "Monday 8 June 2026" → use that exact date in YYYY-MM-DD format
+
+For each transaction return exactly these fields:
+- amount: positive number (always positive, sign is captured in type)
+- type: "Expense" | "Income" | "Transfer" | "Investment"
+  Negative sign or plain debit = Expense; positive/green = Income;
+  "transfer", "savings", "spaarrekening" = Transfer; ETF/crypto/DeGiro = Investment
+- description: 1-3 clean English words, lowercase (e.g. "groceries", "fuel", "concert ticket")
+- category: one of Food | Transport | Social | Health | Education | Clothing | Income | Investment | Transfer | Fee | Impulse | Other
+- is_impulse: true if clearly an impulse buy, else false
+- source_date: YYYY-MM-DD resolved from the date section header above this transaction
+- confidence: 0.0-1.0 (lower when merchant is cryptic or category is unclear)
+- needs_clarification: true if merchant is cryptic/unrecognisable OR amount sign is ambiguous
+- clarification_question: a short natural-language question (empty string if needs_clarification=false)
+
+Known Dutch merchants (never need clarification):
+- AH / Albert Heijn / Jan Linders = groceries (Food)
+- Shell / Esso / BP / Texaco / getankt = fuel (Transport)
+- NS / GVB / RET / OV-chipkaart = public transport (Transport)
+- Tikkie = check sign for Expense or Income
+
+Always needs clarification (confidence < 0.7):
+- All-caps merchant codes, BCK* prefix, PAS124 suffix alone
+- "Exploitatie ..." venue names
+- "TicketingPayments", "bunq" internal transactions without clear context
+
+Return ONLY a valid JSON array, no markdown, no explanation:
+[{{"amount": ..., "type": ..., "description": ..., "category": ..., "is_impulse": ...,
+  "source_date": ..., "confidence": ..., "needs_clarification": ..., "clarification_question": ...}}]"""
+
+
+def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict]:
+    """Parse a banking screenshot into a list of transaction dicts using GPT-4o vision."""
+    import base64
+
+    if today is None:
+        today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+
+    prompt = _IMAGE_PROMPT.format(
+        today=today.strftime("%Y-%m-%d"),
+        yesterday=yesterday.strftime("%Y-%m-%d"),
+    )
+    image_b64 = base64.b64encode(photo_bytes).decode()
+
+    raw_transactions = []
+    try:
+        if config.OPENAI_API_KEY:
+            client = OpenAI(api_key=config.OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                    ],
+                }],
+                max_tokens=1000,
+                temperature=0,
+            )
+            raw_transactions = json.loads(response.choices[0].message.content.strip())
+    except Exception as exc:
+        _log.warning("Image parse failed: %s", exc)
+        return []
+
+    results = []
+    for tx in raw_transactions:
+        if not tx.get("amount"):
+            continue
+        source_date_str = tx.get("source_date") or today.strftime("%Y-%m-%d")
+        try:
+            source_date = datetime.strptime(source_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            source_date = today
+
+        from app.categories import normalize_category
+        raw_cat = tx.get("category") or ""
+
+        results.append({
+            "amount": float(tx["amount"]),
+            "type": tx.get("type", "Expense"),
+            "description": str(tx.get("description", "")).lower()[:50],
+            "category": normalize_category(raw_cat) if raw_cat else None,
+            "is_impulse": bool(tx.get("is_impulse", False)),
+            "confidence": float(tx.get("confidence", 1.0)),
+            "needs_clarification": bool(tx.get("needs_clarification", False)),
+            "clarification_question": str(tx.get("clarification_question", "")),
+            "timestamp": datetime.combine(source_date, datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S"),
+            "date": source_date.strftime("%Y-%m-%d"),
+            "week_start": get_week_start(source_date).strftime("%Y-%m-%d"),
+            "month": get_month(source_date),
+        })
+
+    return results
