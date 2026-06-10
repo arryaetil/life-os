@@ -584,7 +584,13 @@ async def cmd_goal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_photo")
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
+    if context.user_data.get("image_session"):
+        await update.message.reply_text(
+            "You have an active session in progress. Reply 'no' to cancel it first, then send a new photo."
+        )
+        return
 
     photo = update.message.photo[-1]
     file = await context.bot.get_file(photo.file_id)

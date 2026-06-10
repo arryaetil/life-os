@@ -335,13 +335,15 @@ def _resolve_clarification(transaction: dict, reply: str) -> dict:
     from app.categories import normalize_category
 
     sign = "+" if transaction.get("type") == "Income" else "-"
+    safe_reply = reply.replace("{", "{{").replace("}", "}}")
+    safe_question = transaction.get("clarification_question", "").replace("{", "{{").replace("}", "}}")
     prompt = _CLARIFICATION_PROMPT.format(
         description=transaction.get("description", "?"),
         sign=sign,
         amount=float(transaction.get("amount", 0)),
         date=transaction.get("date", "?"),
-        question=transaction.get("clarification_question", ""),
-        reply=reply,
+        question=safe_question,
+        reply=safe_reply,
     )
 
     try:
@@ -405,7 +407,8 @@ def _resolve_confirmation(transactions: list[dict], reply: str) -> tuple[str, li
         f"{'+' if t['type'] == 'Income' else '-'}€{float(t['amount']):.2f} ({t.get('category', '?')})"
         for i, t in enumerate(transactions)
     )
-    prompt = _CONFIRMATION_PROMPT.format(transaction_list=tx_lines, reply=reply)
+    safe_reply = reply.replace("{", "{{").replace("}", "}}")
+    prompt = _CONFIRMATION_PROMPT.format(transaction_list=tx_lines, reply=safe_reply)
 
     try:
         if config.OPENAI_API_KEY and OpenAI is not None:
@@ -417,7 +420,9 @@ def _resolve_confirmation(transactions: list[dict], reply: str) -> tuple[str, li
                 temperature=0,
             )
             result = json.loads(response.choices[0].message.content.strip())
-            return result.get("action", "cancel"), result.get("skip_indices", [])
+            raw_indices = result.get("skip_indices", [])
+            safe_indices = [int(x) for x in raw_indices if isinstance(x, (int, float))]
+            return result.get("action", "cancel"), safe_indices
     except Exception as exc:
         _log.warning("Confirmation resolve failed: %s", exc)
 
