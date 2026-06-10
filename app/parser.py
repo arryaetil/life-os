@@ -1,6 +1,7 @@
 import re
 import json
 import logging
+import base64
 from datetime import datetime, timedelta, date as date_type
 from app.utils import get_week_start, get_month
 from app import config
@@ -252,8 +253,6 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 
 def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict]:
     """Parse a banking screenshot into a list of transaction dicts using GPT-4o vision."""
-    import base64
-
     if today is None:
         today = datetime.now().date()
     yesterday = today - timedelta(days=1)
@@ -266,7 +265,7 @@ def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict
 
     raw_transactions = []
     try:
-        if config.OPENAI_API_KEY:
+        if config.OPENAI_API_KEY and OpenAI is not None:
             client = OpenAI(api_key=config.OPENAI_API_KEY)
             response = client.chat.completions.create(
                 model="gpt-4o",
@@ -277,7 +276,7 @@ def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
                     ],
                 }],
-                max_tokens=1000,
+                max_tokens=1500,
                 temperature=0,
             )
             raw_transactions = json.loads(response.choices[0].message.content.strip())
@@ -285,6 +284,7 @@ def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict
         _log.warning("Image parse failed: %s", exc)
         return []
 
+    from app.categories import normalize_category
     results = []
     for tx in raw_transactions:
         if not tx.get("amount"):
@@ -295,7 +295,6 @@ def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict
         except ValueError:
             source_date = today
 
-        from app.categories import normalize_category
         raw_cat = tx.get("category") or ""
 
         results.append({
