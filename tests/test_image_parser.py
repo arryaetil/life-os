@@ -93,3 +93,67 @@ def test_parse_image_skips_items_without_amount():
         result = parse_image(b"fake_bytes", today=date(2026, 6, 10))
 
     assert result == []
+
+
+def test_resolve_clarification_updates_description_and_category():
+    tx = {
+        "description": "gelredome", "amount": 20.00, "type": "Expense",
+        "date": "2026-06-08", "clarification_question": "What was Gelredome?",
+        "category": "Other",
+    }
+    resp = _mock_openai_response('{"skip": false, "description": "concert venue", "category": "Social"}')
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.return_value = resp
+        from app.parser import _resolve_clarification
+        result = _resolve_clarification(tx, "concert with friends")
+
+    assert result["skip"] is False
+    assert result["description"] == "concert venue"
+    assert result["category"] is not None
+
+
+def test_resolve_clarification_marks_skip():
+    tx = {
+        "description": "ticketing payments", "amount": 351.98, "type": "Expense",
+        "date": "2026-06-07", "clarification_question": "What was this for?",
+        "category": "Other",
+    }
+    resp = _mock_openai_response('{"skip": true, "description": "", "category": ""}')
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.return_value = resp
+        from app.parser import _resolve_clarification
+        result = _resolve_clarification(tx, "skip that one")
+
+    assert result["skip"] is True
+
+
+def test_resolve_clarification_fallback_skip_keyword():
+    tx = {
+        "description": "bunq", "amount": 20.00, "type": "Expense",
+        "date": "2026-06-10", "clarification_question": "What is this bunq charge?",
+        "category": "Other",
+    }
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.side_effect = Exception("fail")
+        from app.parser import _resolve_clarification
+        result = _resolve_clarification(tx, "leave out")
+
+    assert result["skip"] is True
+
+
+def test_resolve_clarification_fallback_non_skip():
+    tx = {
+        "description": "bunq", "amount": 20.00, "type": "Expense",
+        "date": "2026-06-10", "clarification_question": "What is this bunq charge?",
+        "category": "Other",
+    }
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.side_effect = Exception("fail")
+        from app.parser import _resolve_clarification
+        result = _resolve_clarification(tx, "monthly fee")
+
+    assert result["skip"] is False

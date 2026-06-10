@@ -313,3 +313,59 @@ def parse_image(photo_bytes: bytes, today: date_type | None = None) -> list[dict
         })
 
     return results
+
+
+_CLARIFICATION_PROMPT = """A user is clarifying a transaction from their bank statement.
+
+Transaction: {description} | {sign}€{amount:.2f} on {date}
+Question asked: "{question}"
+User's reply: "{reply}"
+
+If the user says to ignore/skip/leave out this transaction → set skip=true.
+Otherwise extract a clean description and category.
+
+Return ONLY valid JSON:
+{{"skip": false, "description": "<1-3 English words lowercase>", "category": "<Food|Transport|Social|Health|Education|Clothing|Income|Investment|Transfer|Fee|Impulse|Other>"}}
+or
+{{"skip": true, "description": "", "category": ""}}"""
+
+
+def _resolve_clarification(transaction: dict, reply: str) -> dict:
+    """Interpret a free-text clarification reply. Returns {"skip": True} or updated fields."""
+    from app.categories import normalize_category
+
+    sign = "+" if transaction.get("type") == "Income" else "-"
+    prompt = _CLARIFICATION_PROMPT.format(
+        description=transaction.get("description", "?"),
+        sign=sign,
+        amount=float(transaction.get("amount", 0)),
+        date=transaction.get("date", "?"),
+        question=transaction.get("clarification_question", ""),
+        reply=reply,
+    )
+
+    try:
+        if config.OPENAI_API_KEY and OpenAI is not None:
+            client = OpenAI(api_key=config.OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=80,
+                temperature=0,
+            )
+            result = json.loads(response.choices[0].message.content.strip())
+            if result.get("skip"):
+                return {"skip": True}
+            raw_cat = result.get("category", "")
+            return {
+                "skip": False,
+                "description": result.get("description", transaction.get("description", "")),
+                "category": normalize_category(raw_cat) if raw_cat else transaction.get("category"),
+            }
+    except Exception as exc:
+        _log.warning("Clarification resolve failed: %s", exc)
+
+    lower = reply.strip().lower()
+    if any(w in lower for w in ("skip", "ignore", "leave out", "don't log", "not this", "no")):
+        return {"skip": True}
+    return {"skip": False, "description": reply[:30].lower(), "category": transaction.get("category")}
