@@ -369,3 +369,59 @@ def _resolve_clarification(transaction: dict, reply: str) -> dict:
     if any(w in lower for w in ("skip", "ignore", "leave out", "don't log", "not this", "no")):
         return {"skip": True}
     return {"skip": False, "description": reply[:30].lower(), "category": transaction.get("category")}
+
+
+_CONFIRMATION_PROMPT = """A user is reviewing a list of transactions before logging them.
+
+Transactions (1-based):
+{transaction_list}
+
+User's reply: "{reply}"
+
+Determine the action:
+- "yes" / "ja" / "ok" / "log all" / "sure" → log_all
+- "no" / "nee" / "cancel" / "stop" → cancel
+- Anything that skips specific items → skip_some with 0-based indices of the items to skip
+
+Return ONLY valid JSON:
+{{"action": "log_all" | "cancel" | "skip_some", "skip_indices": [<0-based indices to skip>]}}
+
+Examples:
+"yes" → {{"action": "log_all", "skip_indices": []}}
+"no" → {{"action": "cancel", "skip_indices": []}}
+"skip 1 and 3" (user says 1-based) → {{"action": "skip_some", "skip_indices": [0, 2]}}
+"leave out the bunq one" (item 1 is bunq fee) → {{"action": "skip_some", "skip_indices": [0]}}
+"yes but not the transfer" → {{"action": "skip_some", "skip_indices": [<transfer index>]}}"""
+
+
+def _resolve_confirmation(transactions: list[dict], reply: str) -> tuple[str, list[int]]:
+    """Interpret a free-text confirmation reply. Returns (action, skip_indices).
+
+    action is one of: 'log_all', 'cancel', 'skip_some'
+    skip_indices are 0-based indices into transactions to exclude.
+    """
+    tx_lines = "\n".join(
+        f"{i + 1}. {t['date']} | {t['description']} | "
+        f"{'+' if t['type'] == 'Income' else '-'}€{float(t['amount']):.2f} ({t.get('category', '?')})"
+        for i, t in enumerate(transactions)
+    )
+    prompt = _CONFIRMATION_PROMPT.format(transaction_list=tx_lines, reply=reply)
+
+    try:
+        if config.OPENAI_API_KEY and OpenAI is not None:
+            client = OpenAI(api_key=config.OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
+                temperature=0,
+            )
+            result = json.loads(response.choices[0].message.content.strip())
+            return result.get("action", "cancel"), result.get("skip_indices", [])
+    except Exception as exc:
+        _log.warning("Confirmation resolve failed: %s", exc)
+
+    lower = reply.strip().lower()
+    if lower in ("yes", "ja", "y", "ok", "yep", "sure", "log all", "ja allemaal"):
+        return "log_all", []
+    return "cancel", []

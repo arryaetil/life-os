@@ -157,3 +157,70 @@ def test_resolve_clarification_fallback_non_skip():
         result = _resolve_clarification(tx, "monthly fee")
 
     assert result["skip"] is False
+
+
+def _sample_transactions():
+    return [
+        {"date": "2026-06-10", "description": "bunq fee", "amount": 20.00,
+         "type": "Expense", "category": "Fee"},
+        {"date": "2026-06-09", "description": "fuel", "amount": 20.40,
+         "type": "Expense", "category": "Transport"},
+        {"date": "2026-06-09", "description": "groceries", "amount": 7.57,
+         "type": "Expense", "category": "Food"},
+    ]
+
+
+def test_resolve_confirmation_log_all():
+    resp = _mock_openai_response('{"action": "log_all", "skip_indices": []}')
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.return_value = resp
+        from app.parser import _resolve_confirmation
+        action, skip = _resolve_confirmation(_sample_transactions(), "yes")
+
+    assert action == "log_all"
+    assert skip == []
+
+
+def test_resolve_confirmation_cancel():
+    resp = _mock_openai_response('{"action": "cancel", "skip_indices": []}')
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.return_value = resp
+        from app.parser import _resolve_confirmation
+        action, skip = _resolve_confirmation(_sample_transactions(), "no")
+
+    assert action == "cancel"
+
+
+def test_resolve_confirmation_skip_some():
+    resp = _mock_openai_response('{"action": "skip_some", "skip_indices": [0]}')
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.return_value = resp
+        from app.parser import _resolve_confirmation
+        action, skip = _resolve_confirmation(_sample_transactions(), "leave out the bunq one")
+
+    assert action == "skip_some"
+    assert 0 in skip
+
+
+def test_resolve_confirmation_fallback_yes():
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.side_effect = Exception("fail")
+        from app.parser import _resolve_confirmation
+        action, skip = _resolve_confirmation(_sample_transactions(), "ja")
+
+    assert action == "log_all"
+    assert skip == []
+
+
+def test_resolve_confirmation_fallback_no():
+    with patch("app.parser.config") as mock_cfg, patch("app.parser.OpenAI") as MockOAI:
+        mock_cfg.OPENAI_API_KEY = "test-key"
+        MockOAI.return_value.chat.completions.create.side_effect = Exception("fail")
+        from app.parser import _resolve_confirmation
+        action, skip = _resolve_confirmation(_sample_transactions(), "nee")
+
+    assert action == "cancel"
