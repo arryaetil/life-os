@@ -2,7 +2,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from app import config
 from app.auth import owner_only
 from app.commands import (
-    handle_message,
+    handle_message, handle_photo,
     cmd_start, cmd_help, cmd_today, cmd_week,
     cmd_month, cmd_income, cmd_undo, cmd_summary, cmd_budget,
     cmd_status, cmd_next, cmd_git, cmd_handoff,
@@ -31,6 +31,9 @@ def create_ptb_app() -> Application:
     application.add_handler(CommandHandler("nw", owner_only(cmd_nw)))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, owner_only(handle_message))
+    )
+    application.add_handler(
+        MessageHandler(filters.PHOTO, owner_only(handle_photo))
     )
 
     return application
