@@ -3,7 +3,7 @@ from datetime import date
 from telegram import Update
 from telegram.ext import ContextTypes
 from app import database as sheets, budget as budget_module, config
-from app.parser import parse_message, is_bulk_message, parse_bulk_message
+from app.parser import parse_message, is_bulk_message, parse_bulk_message, parse_image, _resolve_clarification, _resolve_confirmation
 from app.categories import (
     build_category_clarification_question,
     get_category,
@@ -575,4 +575,54 @@ async def cmd_goal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"{goal['label']}: {bar} {progress['pct']}%\n"
                 f"  {format_currency(progress['remaining'])} to go"
             )
+    await update.message.reply_text("\n".join(lines))
+
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_photo")
+
+    photo = update.message.photo[-1]
+    file = await context.bot.get_file(photo.file_id)
+    photo_bytes = bytes(await file.download_as_bytearray())
+
+    transactions = parse_image(photo_bytes)
+
+    if not transactions:
+        await update.message.reply_text(
+            "Couldn't read any transactions from that screenshot. Try a clearer image."
+        )
+        return
+
+    clarifications = [
+        (i, t["clarification_question"])
+        for i, t in enumerate(transactions)
+        if t.get("needs_clarification") and t.get("clarification_question")
+    ]
+
+    context.user_data["image_session"] = {
+        "transactions": transactions,
+        "clarifications": clarifications,
+        "cursor": 0,
+        "awaiting_confirmation": len(clarifications) == 0,
+    }
+
+    if clarifications:
+        _, question = clarifications[0]
+        count = len(transactions)
+        await update.message.reply_text(
+            f"Got {count} transaction{'s' if count != 1 else ''}. A few questions first.\n\n{question}"
+        )
+    else:
+        await _send_confirmation_preview(update, transactions)
+
+
+async def _send_confirmation_preview(update: Update, transactions: list) -> None:
+    lines = [f"Ready to log {len(transactions)} transaction{'s' if len(transactions) != 1 else ''}:\n"]
+    for i, t in enumerate(transactions):
+        sign = "+" if t["type"] == "Income" else "-"
+        lines.append(
+            f"{i + 1}. {t['date']}  {t['description']:<22} {sign}€{float(t['amount']):.2f}"
+            f"  ({t.get('category', '?')})"
+        )
+    lines.append("\nReply 'yes' to log all, 'no' to cancel, or tell me which ones to leave out.")
     await update.message.reply_text("\n".join(lines))
