@@ -10,11 +10,18 @@ def _make_update(text: str):
     return update
 
 
+def _make_context():
+    """Return a context mock with user_data={} so Priority 0 never fires."""
+    context = MagicMock()
+    context.user_data = {}
+    return context
+
+
 async def test_reply_a_no_pending_returns_no_active_decision():
     from app.commands import handle_message
     update = _make_update("A")
     with patch("app.database.read_pending_action", return_value=None):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "No active agent decision" in reply
     assert "couldn't find an amount" not in reply
@@ -24,7 +31,7 @@ async def test_reply_done_no_pending_returns_no_active_decision():
     from app.commands import handle_message
     update = _make_update("DONE")
     with patch("app.database.read_pending_action", return_value=None):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "No active agent decision" in reply
     assert "couldn't find an amount" not in reply
@@ -42,7 +49,7 @@ async def test_reply_b_with_pending_decision_resolves_and_confirms():
     update = _make_update("B")
     with patch("app.database.read_pending_action", return_value=pending), \
          patch("app.database.resolve_agent_state") as mock_resolve:
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     mock_resolve.assert_called_once_with(42)
     reply = update.message.reply_text.call_args[0][0]
     assert "Decision received: B" in reply
@@ -60,7 +67,7 @@ async def test_reply_done_with_pending_manual_action_confirms_done():
     update = _make_update("done")
     with patch("app.database.read_pending_action", return_value=pending), \
          patch("app.database.resolve_agent_state"):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "Manual action marked as done" in reply
 
@@ -87,7 +94,7 @@ async def test_normal_expense_still_parsed():
              "weekly_spent": 14.0, "weekly_budget": 90.0,
              "remaining": 76.0, "pct_used": 15.6, "week_start": "2026-05-13",
          }):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "kebab" in reply
     assert "Got it" in reply
@@ -97,7 +104,7 @@ async def test_yes_reply_not_parsed_as_expense():
     from app.commands import handle_message
     update = _make_update("yes")
     with patch("app.database.read_pending_action", return_value=None):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "No active agent decision" in reply
 
@@ -114,7 +121,7 @@ async def test_c_reply_with_pending_error_state_resolves():
     update = _make_update("C")
     with patch("app.database.read_pending_action", return_value=pending), \
          patch("app.database.resolve_agent_state") as mock_resolve:
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     mock_resolve.assert_called_once_with(99)
 
 
@@ -125,7 +132,7 @@ async def test_lifeos_question_answered_by_ai_not_expense_parser():
          patch("app.ai_agent.answer_lifeos_question", return_value="Your net worth is €15,000."), \
          patch("app.database.get_latest_net_worth_snapshot", return_value=None), \
          patch("app.database.get_all_transactions", return_value=[]):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     calls = [c[0][0] for c in update.message.reply_text.call_args_list]
     assert any("€15,000" in r or "net worth" in r.lower() for r in calls)
     assert all("couldn't find an amount" not in r for r in calls)
@@ -137,7 +144,7 @@ async def test_action_request_proposes_and_stores_pending_decision():
     with patch("app.intent_classifier.classify_intent", return_value="action_request"), \
          patch("app.ai_agent.propose_action", return_value="I propose to build Module 1.2. Reply A to approve or B to cancel."), \
          patch("app.database.write_agent_state") as mock_write:
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "Module 1.2" in reply or "propose" in reply.lower()
     assert "Reply A" in reply or "A to approve" in reply
@@ -149,7 +156,7 @@ async def test_unknown_intent_asks_for_clarification():
     update = _make_update("hello there")
     with patch("app.intent_classifier.classify_intent", return_value="unknown"), \
          patch("app.parser.parse_message", side_effect=ValueError("no amount")):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "clarify" in reply.lower() or "not sure" in reply.lower()
     assert "couldn't find an amount" not in reply
@@ -168,7 +175,7 @@ async def test_ambiguous_message_sends_clarification_question():
     }
     with patch("app.commands.parse_message", return_value=clarification_result), \
          patch("app.commands.classify_intent", return_value="finance_transaction"):
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "How much" in reply
 
@@ -192,7 +199,7 @@ async def test_low_confidence_new_category_asks_before_saving():
          patch("app.commands.classify_intent", return_value="finance_transaction"), \
          patch("app.categories.get_stored_categories", return_value=set()), \
          patch("app.database.append_transaction") as mock_append:
-        await handle_message(update, MagicMock())
+        await handle_message(update, _make_context())
     reply = update.message.reply_text.call_args[0][0]
     assert "Should 'weird gear' be categorized as Odd Stuff" in reply
     mock_append.assert_not_called()

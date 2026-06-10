@@ -219,3 +219,35 @@ async def test_image_session_confirmation_skip_some_logs_remaining():
     reply = update.message.reply_text.call_args[0][0]
     assert "Logged 1" in reply
     assert "Skipped" in reply
+
+
+async def test_handle_message_routes_to_image_session_when_active():
+    update = MagicMock()
+    update.message.text = "yes"
+    update.message.reply_text = AsyncMock()
+    session = _session_awaiting_confirmation(1)
+    context = _make_context({"image_session": session})
+
+    with patch("app.commands._handle_image_session", new_callable=AsyncMock) as mock_sess, \
+         patch("app.commands.is_agent_reply", return_value=False):
+        from app.commands import handle_message
+        await handle_message(update, context)
+
+    mock_sess.assert_called_once_with(update, context, "yes")
+
+
+async def test_handle_message_no_session_uses_normal_flow():
+    update = MagicMock()
+    update.message.text = "14 kebab"
+    update.message.reply_text = AsyncMock()
+    context = _make_context({})  # no image_session
+
+    with patch("app.commands._handle_transaction", new_callable=AsyncMock) as mock_txn, \
+         patch("app.commands.is_agent_reply", return_value=False), \
+         patch("app.commands.is_net_worth_message", return_value=False), \
+         patch("app.commands.is_bulk_message", return_value=False), \
+         patch("app.commands.classify_intent", return_value="finance_transaction"):
+        from app.commands import handle_message
+        await handle_message(update, context)
+
+    mock_txn.assert_called_once()

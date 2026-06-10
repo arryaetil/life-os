@@ -38,6 +38,11 @@ async def handle_agent_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
 
+    # Priority 0: active image session waiting for clarification or confirmation reply
+    if context.user_data.get("image_session"):
+        await _handle_image_session(update, context, text)
+        return
+
     # Priority 1: agent-control replies (A/B/C/DONE/yes/no/etc.)
     if is_agent_reply(text):
         await handle_agent_reply(update, context, text)
