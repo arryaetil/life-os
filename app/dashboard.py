@@ -104,7 +104,7 @@ async def transactions_page(request: Request):
 
 @app.get("/financials")
 async def financials_page(request: Request):
-    latest = sheets.get_latest_net_worth_snapshot()
+    latest = sheets.get_first_net_worth_snapshot()
     history = sheets.get_net_worth_history(limit=30)
     all_transactions = sheets.get_all_transactions()
     monthly = budget_module.calculate_monthly_summary(all_transactions)

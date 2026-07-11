@@ -206,6 +206,20 @@ def get_latest_net_worth_snapshot() -> dict | None:
         return dict(row._mapping) if row else None
 
 
+def get_first_net_worth_snapshot() -> dict | None:
+    """Return the earliest recorded snapshot (the true baseline). Used as
+    the anchor for the live net worth series/chart so later automated
+    monthly snapshots don't truncate historical chart data."""
+    with _engine.connect() as conn:
+        result = conn.execute(
+            select(net_worth_snapshots)
+            .order_by(net_worth_snapshots.c.id)
+            .limit(1)
+        )
+        row = result.fetchone()
+        return dict(row._mapping) if row else None
+
+
 def get_net_worth_history(limit: int = 30) -> list[dict]:
     """Return the most recent `limit` snapshots ordered oldest-first."""
     with _engine.connect() as conn:

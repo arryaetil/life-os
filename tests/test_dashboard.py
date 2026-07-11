@@ -35,7 +35,7 @@ def client():
 def test_home_returns_financials(client):
     with patch("app.dashboard.sheets.get_all_transactions", return_value=MOCK_TRANSACTIONS), \
          patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=None):
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None):
         response = client.get("/")
     assert response.status_code == 200
     assert "Financials" in response.text
@@ -111,21 +111,21 @@ def test_webhook_accepts_correct_secret():
 
 def test_networth_page_returns_200(client):
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=None), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \
          patch("app.dashboard.sheets.get_all_transactions", return_value=[]):
         response = client.get("/networth")
     assert response.status_code == 200
 
 def test_financials_page_returns_200(client):
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=None), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \
          patch("app.dashboard.sheets.get_all_transactions", return_value=[]):
         response = client.get("/financials")
     assert response.status_code == 200
 
 def test_networth_page_empty_state(client):
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=None), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \
          patch("app.dashboard.sheets.get_all_transactions", return_value=[]):
         response = client.get("/networth")
     assert "No Net Worth" in response.text or "No net worth" in response.text
@@ -138,7 +138,7 @@ def test_networth_page_shows_total_when_data(client):
         "total_net_worth": 13000.0, "notes": "",
     }
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[snap]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=snap):
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=snap):
         response = client.get("/networth")
     assert "13000.00" in response.text
 
@@ -157,7 +157,7 @@ def test_networth_chart_uses_transaction_adjusted_series(client):
         {"id": 4, "timestamp": "2026-05-15 14:00:00", "type": "Transfer", "amount": 500.0, "notes": ""},
     ]
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[snap]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=snap), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=snap), \
          patch("app.dashboard.sheets.get_all_transactions", return_value=txns):
         response = client.get("/networth")
     assert "15178.00" in response.text
@@ -177,7 +177,7 @@ def test_networth_page_shows_activity_feed_not_snapshot_table(client):
         {"id": 3, "timestamp": "2026-05-15 13:00:00", "type": "Transfer", "amount": 500.0, "notes": "", "description": "savings"},
     ]
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[snap]), \
-         patch("app.dashboard.sheets.get_latest_net_worth_snapshot", return_value=snap), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=snap), \
          patch("app.dashboard.sheets.get_all_transactions", return_value=txns):
         response = client.get("/networth")
     assert "Net Worth Activity" in response.text
