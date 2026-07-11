@@ -225,6 +225,46 @@ def calculate_monthly_change(
     return {"delta": delta, "direction": "up" if delta >= 0 else "down"}
 
 
+def calculate_previous_month_change(
+    history: list[dict],
+    reference_date: date | None = None,
+) -> dict | None:
+    """Change during the last FULLY COMPLETED calendar month, using the
+    month-start snapshots (current month's start snapshot minus previous
+    month's start snapshot). Unlike calculate_monthly_change, this never
+    mixes in partial current-month activity."""
+    if reference_date is None:
+        reference_date = date.today()
+
+    current_month = reference_date.strftime("%Y-%m")
+    first_of_current = date(reference_date.year, reference_date.month, 1)
+    last_day_prev = first_of_current - timedelta(days=1)
+    previous_month = last_day_prev.strftime("%Y-%m")
+
+    def _first_snapshot_in_month(month: str) -> dict | None:
+        matches = sorted(
+            [s for s in history if s["timestamp"][:7] == month],
+            key=lambda s: s["timestamp"],
+        )
+        return matches[0] if matches else None
+
+    start_of_prev = _first_snapshot_in_month(previous_month)
+    start_of_current = _first_snapshot_in_month(current_month)
+    if start_of_prev is None or start_of_current is None:
+        return None
+
+    delta = round(
+        float(start_of_current["total_net_worth"])
+        - float(start_of_prev["total_net_worth"]),
+        2,
+    )
+    return {
+        "delta": delta,
+        "direction": "up" if delta >= 0 else "down",
+        "month": previous_month,
+    }
+
+
 def calculate_change(history: list[dict]) -> dict | None:
     """Change between last two snapshots. Kept for backward compatibility."""
     if len(history) < 2:

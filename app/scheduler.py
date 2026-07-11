@@ -49,6 +49,22 @@ def job_monday_weekly_summary() -> None:
         _log.warning("monday job failed: %s", exc)
 
 
+def job_monthly_snapshot() -> None:
+    """Record a net worth snapshot at the start of each month so monthly
+    change can be computed from two real month-start data points instead
+    of comparing live (partial-month) net worth to an old baseline."""
+    try:
+        snap = database.get_latest_net_worth_snapshot()
+        txns = database.get_all_transactions()
+        live_nw = calculate_live_net_worth(snap, txns)
+        database.create_net_worth_snapshot({
+            "other_assets": live_nw,
+            "notes": "Automated monthly snapshot",
+        })
+    except Exception as exc:
+        _log.warning("monthly snapshot job failed: %s", exc)
+
+
 def job_monthly_review() -> None:
     try:
         txns = database.get_all_transactions()
@@ -87,6 +103,11 @@ def create_scheduler() -> BackgroundScheduler:
         job_monday_weekly_summary,
         CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=_TZ),
         id="monday_summary",
+    )
+    scheduler.add_job(
+        job_monthly_snapshot,
+        CronTrigger(day=1, hour=6, minute=0, timezone=_TZ),
+        id="monthly_snapshot",
     )
     scheduler.add_job(
         job_monthly_review,

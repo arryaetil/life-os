@@ -117,7 +117,7 @@ async def financials_page(request: Request):
         all_transactions,
         chart_range=selected_range,
     )
-    monthly_change = nw_module.calculate_monthly_change(live_nw, history)
+    monthly_change = nw_module.calculate_previous_month_change(history)
     goals = [
         {**g, **nw_module.calculate_goal_progress(live_nw, g["target"])}
         for g in nw_module.GOALS

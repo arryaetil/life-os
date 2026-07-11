@@ -21,7 +21,7 @@
     <div class="kpi-value {% if monthly_change.delta >= 0 %}positive{% else %}danger{% endif %}">
       {% if monthly_change.delta >= 0 %}+{% endif %}{{ monthly_change.delta | format_currency }}
     </div>
-    <div class="kpi-sub">vs start of this month</div>
+    <div class="kpi-sub">{{ monthly_change.month }} (last full month)</div>
     {% else %}
     <div class="kpi-value" style="color: var(--text-secondary);">—</div>
     <div class="kpi-sub">Insufficient history</div>
