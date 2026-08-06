@@ -122,16 +122,17 @@ async def financials_page(request: Request):
         {**g, **nw_module.calculate_goal_progress(live_nw, g["target"])}
         for g in nw_module.GOALS
     ]
+    current_snapshot = sheets.get_latest_net_worth_snapshot()
     allocation = []
     max_asset = 1.0
-    if latest:
+    if current_snapshot:
         raw = [
-            {"label": "Cash",         "amount": latest["cash"],         "color": ""},
-            {"label": "Investments",  "amount": latest["investments"],   "color": ""},
-            {"label": "Crypto",       "amount": latest["crypto"],        "color": ""},
-            {"label": "Savings",      "amount": latest["savings"],       "color": ""},
-            {"label": "Other Assets", "amount": latest["other_assets"],  "color": ""},
-            {"label": "Liabilities",  "amount": latest["liabilities"],   "color": "danger"},
+            {"label": "Cash",         "amount": current_snapshot["cash"],         "color": ""},
+            {"label": "Investments",  "amount": current_snapshot["investments"],   "color": ""},
+            {"label": "Crypto",       "amount": current_snapshot["crypto"],        "color": ""},
+            {"label": "Savings",      "amount": current_snapshot["savings"],       "color": ""},
+            {"label": "Other Assets", "amount": current_snapshot["other_assets"],  "color": ""},
+            {"label": "Liabilities",  "amount": current_snapshot["liabilities"],   "color": "danger"},
         ]
         allocation = [a for a in raw if a["amount"] > 0]
         pos_amounts = [a["amount"] for a in allocation]
