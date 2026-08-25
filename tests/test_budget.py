@@ -110,3 +110,12 @@ def test_income_in_expense_category_is_not_implicitly_a_reimbursement():
     assert result["monthly_spent"] == 34.5
     assert result["monthly_income"] == 324.0
     assert result["monthly_reimbursements"] == 0.0
+
+def test_monthly_kpis_reset_for_new_calendar_month():
+    result = calculate_monthly_summary(TRANSACTIONS, date(2026, 6, 1))
+
+    assert result["month"] == "2026-06"
+    assert result["monthly_spent"] == 0.0
+    assert result["monthly_income"] == 0.0
+    assert result["monthly_reimbursements"] == 0.0
+    assert result["net_cashflow"] == 0.0
