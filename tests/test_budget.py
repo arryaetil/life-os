@@ -80,3 +80,33 @@ def test_monthly_summary_empty_transactions():
     assert result["monthly_income"] == 0.0
     assert result["net_cashflow"] == 0.0
     assert result["by_category"] == {}
+
+def test_reimbursement_reduces_spending_not_income():
+    txns = TRANSACTIONS + [{
+        "week_start": "2026-05-11", "month": "2026-05",
+        "type": "Income", "amount": 10.0, "category": "Social",
+        "is_impulse": False, "notes": "[REIMBURSEMENT] Ryan - shared costs",
+    }]
+
+    weekly = calculate_weekly_status(txns, 90.0, REF)
+    monthly = calculate_monthly_summary(txns, REF)
+
+    assert weekly["weekly_spent"] == 24.5
+    assert monthly["monthly_spent"] == 24.5
+    assert monthly["monthly_income"] == 314.0
+    assert monthly["monthly_reimbursements"] == 10.0
+    assert monthly["net_cashflow"] == 289.5
+    assert monthly["by_category"]["Social"] == 10.5
+
+def test_income_in_expense_category_is_not_implicitly_a_reimbursement():
+    txns = TRANSACTIONS + [{
+        "week_start": "2026-05-11", "month": "2026-05",
+        "type": "Income", "amount": 10.0, "category": "Social",
+        "is_impulse": False, "notes": "",
+    }]
+
+    result = calculate_monthly_summary(txns, REF)
+
+    assert result["monthly_spent"] == 34.5
+    assert result["monthly_income"] == 324.0
+    assert result["monthly_reimbursements"] == 0.0

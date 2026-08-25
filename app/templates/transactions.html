@@ -27,7 +27,11 @@
         {# --- view cells --- #}
         <td class="cell-view" data-field="date">{{ t.date }}</td>
         <td class="cell-view" data-field="type">
+          {% if '[REIMBURSEMENT]' in (t.notes or '') %}
+          <span class="pill">Reimbursement</span>
+          {% else %}
           <span class="pill {{ t.type | lower }}">{{ t.type }}</span>
+          {% endif %}
         </td>
         <td class="cell-view" data-field="amount">{{ t.amount | format_currency }}</td>
         <td class="cell-view" data-field="description">{{ t.description }}</td>

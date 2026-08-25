@@ -193,6 +193,7 @@ async def cmd_income(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         t for t in transactions
         if t["month"] == month
         and t["type"] == "Income"
+        and not budget_module.is_reimbursement(t)
         and "[UNDONE]" not in (t["notes"] or "")
     ]
 

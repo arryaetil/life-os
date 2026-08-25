@@ -26,7 +26,9 @@
   <div class="glass-card">
     <div class="kpi-label">Monthly Spent</div>
     <div class="kpi-value">{{ monthly.monthly_spent | format_currency }}</div>
-    <div class="kpi-sub">{{ monthly.month }}</div>
+    <div class="kpi-sub">
+      {{ monthly.month }}{% if monthly.monthly_reimbursements %} · after {{ monthly.monthly_reimbursements | format_currency }} reimbursements{% endif %}
+    </div>
   </div>
 
   <div class="glass-card">
@@ -66,7 +68,11 @@
         <td><span class="pill">{{ t.category }}</span></td>
         <td>{{ t.amount | format_currency }}</td>
         <td>
+          {% if '[REIMBURSEMENT]' in (t.notes or '') %}
+          <span class="pill">Reimbursement</span>
+          {% else %}
           <span class="pill {{ t.type | lower }}">{{ t.type }}</span>
+          {% endif %}
           {% if t.is_impulse %}<span class="pill impulse" style="margin-left:4px">impulse</span>{% endif %}
         </td>
       </tr>
