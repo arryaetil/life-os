@@ -1,8 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div class="section-header">Current Calendar Month — {{ monthly.month }} (month to date)</div>
 <div class="kpi-grid">
+  <div class="glass-card">
+    <div class="kpi-label">Monthly Income</div>
+    <div class="kpi-value positive">{{ monthly.monthly_income | format_currency }}</div>
+    <div class="kpi-sub">earned income</div>
+  </div>
 
+  <div class="glass-card">
+    <div class="kpi-label">Monthly Expenses</div>
+    <div class="kpi-value">{{ monthly.monthly_spent | format_currency }}</div>
+    <div class="kpi-sub">after {{ monthly.monthly_reimbursements | format_currency }} reimbursements</div>
+  </div>
+
+  <div class="glass-card">
+    <div class="kpi-label">Monthly Cash Flow</div>
+    <div class="kpi-value {% if monthly.net_cashflow >= 0 %}positive{% else %}danger{% endif %}">
+      {{ monthly.net_cashflow | format_currency }}
+    </div>
+    <div class="kpi-sub">{{ monthly.month }} income minus expenses</div>
+  </div>
+</div>
+
+<div class="section-header" style="margin-top: 20px;">Net Worth</div>
+<div class="kpi-grid">
   <div class="glass-card">
     <div class="kpi-label">Net Worth (Live)</div>
     <div class="kpi-value {% if live_nw >= 0 %}positive{% else %}danger{% endif %}">
@@ -13,27 +36,6 @@
     {% else %}
     <div class="kpi-sub">No data yet</div>
     {% endif %}
-  </div>
-
-  <div class="glass-card">
-    <div class="kpi-label">Monthly Net Worth Change</div>
-    {% if monthly_change %}
-    <div class="kpi-value {% if monthly_change.delta >= 0 %}positive{% else %}danger{% endif %}">
-      {% if monthly_change.delta >= 0 %}+{% endif %}{{ monthly_change.delta | format_currency }}
-    </div>
-    <div class="kpi-sub">{{ monthly_change.month }} (last full month)</div>
-    {% else %}
-    <div class="kpi-value" style="color: var(--text-secondary);">—</div>
-    <div class="kpi-sub">Insufficient history</div>
-    {% endif %}
-  </div>
-
-  <div class="glass-card">
-    <div class="kpi-label">Monthly Cash Flow</div>
-    <div class="kpi-value {% if monthly.net_cashflow >= 0 %}positive{% else %}danger{% endif %}">
-      {{ monthly.net_cashflow | format_currency }}
-    </div>
-    <div class="kpi-sub">{{ monthly.month }} income minus expenses</div>
   </div>
 
   {% for goal in goals %}

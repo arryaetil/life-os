@@ -123,6 +123,17 @@ def test_financials_page_returns_200(client):
         response = client.get("/financials")
     assert response.status_code == 200
 
+def test_financials_page_groups_current_month_money_metrics(client):
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \
+         patch("app.dashboard.sheets.get_all_transactions", return_value=[]):
+        response = client.get("/financials")
+
+    assert "Monthly Income" in response.text
+    assert "Monthly Expenses" in response.text
+    assert "Monthly Cash Flow" in response.text
+    assert "Monthly Net Worth Change" not in response.text
+
 def test_networth_page_empty_state(client):
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
          patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \
