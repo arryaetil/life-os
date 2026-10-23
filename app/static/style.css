@@ -770,6 +770,12 @@ nav a.active::after {
 .empty-networth h3 { font-size: 20px; letter-spacing: -.025em; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 26px; }
 .chart-frame { position: relative; height: 300px; }
+.chart-frame svg { width: 100%; height: 100%; overflow: visible; }
+.nw-grid { stroke: #1a2230; stroke-width: 1; stroke-dasharray: 3 5; }
+.nw-line { fill: none; stroke: #5b7cff; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.nw-area { fill: rgba(91, 124, 255, .08); }
+.nw-point { fill: #5b7cff; stroke: #101620; stroke-width: 2; }
+.nw-label { fill: #8992a3; font: 11px Inter, system-ui, sans-serif; }
 .range-switcher { display: flex; gap: 3px; }
 .range-switcher a { padding: 6px 8px; border-radius: 5px; color: var(--text-secondary); font-size: 11px; font-weight: 600; text-decoration: none; }
 .range-switcher a:hover,
