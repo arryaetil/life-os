@@ -14,6 +14,12 @@ from app.categories import get_category, get_available_categories
 
 VALID_TRANSACTION_TYPES = {"Expense", "Income", "Transfer", "Investment"}
 FORECAST_MONTHLY_INCOME = 2207.0
+ASSET_ALLOCATION_AMOUNTS = (
+    ("Portfolio", 21_129.95),
+    ("Cash", 10_061.0),
+    ("Checking", 2_789.0),
+    ("Gold", 2_600.0),
+)
 
 _ptb_app = None
 
@@ -109,14 +115,15 @@ async def financials_page(request: Request):
     history = sheets.get_net_worth_history(limit=30)
     all_transactions = sheets.get_all_transactions()
     monthly = budget_module.calculate_monthly_summary(all_transactions)
+    live_nw = nw_module.calculate_live_net_worth(latest, all_transactions)
     forecast = budget_module.calculate_cashflow_forecast(
         all_transactions,
         FORECAST_MONTHLY_INCOME,
+        current_net_worth=live_nw if latest else None,
     )
     selected_range = request.query_params.get("range", "ALL").upper()
     if selected_range not in nw_module.CHART_RANGES:
         selected_range = "ALL"
-    live_nw = nw_module.calculate_live_net_worth(latest, all_transactions)
     chart_series = nw_module.build_net_worth_chart_series(
         latest,
         all_transactions,
@@ -126,21 +133,11 @@ async def financials_page(request: Request):
         {**g, **nw_module.calculate_goal_progress(live_nw, g["target"])}
         for g in nw_module.GOALS
     ]
-    current_snapshot = sheets.get_latest_net_worth_snapshot()
-    allocation = []
-    max_asset = 1.0
-    if current_snapshot:
-        raw = [
-            {"label": "Cash",         "amount": current_snapshot["cash"],         "color": ""},
-            {"label": "Investments",  "amount": current_snapshot["investments"],   "color": ""},
-            {"label": "Crypto",       "amount": current_snapshot["crypto"],        "color": ""},
-            {"label": "Savings",      "amount": current_snapshot["savings"],       "color": ""},
-            {"label": "Other Assets", "amount": current_snapshot["other_assets"],  "color": ""},
-            {"label": "Liabilities",  "amount": current_snapshot["liabilities"],   "color": "danger"},
-        ]
-        allocation = [a for a in raw if a["amount"] > 0]
-        pos_amounts = [a["amount"] for a in allocation]
-        max_asset = max(pos_amounts) if pos_amounts else 1.0
+    allocation_total = sum(amount for _, amount in ASSET_ALLOCATION_AMOUNTS)
+    allocation = [
+        {"label": label, "share": round(amount / allocation_total * 100, 1)}
+        for label, amount in ASSET_ALLOCATION_AMOUNTS
+    ] if latest else []
     chart_labels = [s["label"] for s in chart_series]
     chart_values = [s["total_net_worth"] for s in chart_series]
     activity_feed = nw_module.build_net_worth_activity_feed(latest, all_transactions)
@@ -153,7 +150,6 @@ async def financials_page(request: Request):
         "forecast": forecast,
         "goals": goals,
         "allocation": allocation,
-        "max_asset": max_asset,
         "chart_labels": chart_labels,
         "chart_values": chart_values,
         "chart_ranges": nw_module.CHART_RANGES,

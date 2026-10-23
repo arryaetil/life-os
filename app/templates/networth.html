@@ -41,10 +41,18 @@
         <p>Based on average net expenses from {{ forecast.source_months[0] }} and {{ forecast.source_months[1] }}.</p>
       </div>
       <div class="forecast-total">
+        {% if forecast.ending_net_worth is not none %}
+        <span>Net worth after 3 months</span>
+        <strong>{{ forecast.ending_net_worth | format_currency }}</strong>
+        <small class="{% if forecast.total_cashflow >= 0 %}positive{% else %}danger{% endif %}">
+          {% if forecast.total_cashflow >= 0 %}+{% endif %}{{ forecast.total_cashflow | format_currency }} forecast cash flow
+        </small>
+        {% else %}
         <span>3-month outlook</span>
         <strong class="{% if forecast.total_cashflow >= 0 %}positive{% else %}danger{% endif %}">
           {% if forecast.total_cashflow >= 0 %}+{% endif %}{{ forecast.total_cashflow | format_currency }}
         </strong>
+        {% endif %}
       </div>
     </div>
 
@@ -61,16 +69,17 @@
 
     <div class="forecast-table-wrap">
       <table class="forecast-table">
-        <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Cash flow</th></tr></thead>
+        <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Cash flow</th>{% if forecast.ending_net_worth is not none %}<th>Net worth</th>{% endif %}</tr></thead>
         <tbody>
           {% for item in forecast.months %}
           <tr>
             <td>{{ item.label }}</td>
             <td>{{ item.income | format_currency }}</td>
             <td>{{ item.expenses | format_currency }}</td>
-            <td class="{% if item.cashflow >= 0 %}positive{% else %}danger{% endif %}">
+            <td class="forecast-cashflow {% if item.cashflow >= 0 %}positive{% else %}danger{% endif %}">
               {% if item.cashflow >= 0 %}+{% endif %}{{ item.cashflow | format_currency }}
             </td>
+            {% if item.net_worth is not none %}<td>{{ item.net_worth | format_currency }}</td>{% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -116,8 +125,8 @@
         {% if allocation %}
           {% for a in allocation %}
           <div class="allocation-row">
-            <div class="allocation-meta"><span>{{ a.label }}</span><strong class="{% if a.color == 'danger' %}danger{% endif %}">{{ a.amount | format_currency }}</strong></div>
-            <div class="cat-track"><div class="cat-fill {% if a.color == 'danger' %}danger-fill{% endif %}" style="width: {{ (a.amount / max_asset * 100) | round(1) }}%"></div></div>
+            <div class="allocation-meta"><span>{{ a.label }}</span><strong>{{ a.share }}%</strong></div>
+            <div class="cat-track"><div class="cat-fill" style="width: {{ a.share }}%"></div></div>
           </div>
           {% endfor %}
         {% else %}<p class="empty-copy">No asset breakdown available.</p>{% endif %}

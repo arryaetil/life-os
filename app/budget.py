@@ -102,6 +102,7 @@ def calculate_cashflow_forecast(
     stable_monthly_income: float,
     reference_date: date | None = None,
     months: int = 3,
+    current_net_worth: float | None = None,
 ) -> dict:
     """Forecast cash flow from the average net spend of this and last month."""
     if reference_date is None:
@@ -118,7 +119,7 @@ def calculate_cashflow_forecast(
 
     forecast_months = []
     year, month = reference_date.year, reference_date.month
-    for _ in range(months):
+    for index in range(months):
         month += 1
         if month == 13:
             month = 1
@@ -128,6 +129,10 @@ def calculate_cashflow_forecast(
             "income": stable_monthly_income,
             "expenses": average_expenses,
             "cashflow": monthly_cashflow,
+            "net_worth": (
+                round(current_net_worth + monthly_cashflow * (index + 1), 2)
+                if current_net_worth is not None else None
+            ),
         })
 
     return {
@@ -137,6 +142,10 @@ def calculate_cashflow_forecast(
         "total_income": stable_monthly_income * months,
         "total_expenses": average_expenses * months,
         "total_cashflow": monthly_cashflow * months,
+        "ending_net_worth": (
+            round(current_net_worth + monthly_cashflow * months, 2)
+            if current_net_worth is not None else None
+        ),
         "months": forecast_months,
         "source_months": [calendar.month_name[previous_month], calendar.month_name[reference_date.month]],
         "current_through": reference_date.strftime("%d %B").lstrip("0"),

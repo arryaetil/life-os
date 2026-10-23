@@ -720,6 +720,7 @@ nav a.active::after {
 .section-intro h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1; letter-spacing: -.045em; }
 .forecast-total { flex: 0 0 auto; padding-left: 34px; border-left: 1px solid var(--glass-border); }
 .forecast-total strong { font-size: clamp(28px, 3vw, 38px); letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.forecast-total small { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; }
 
 .forecast-summary {
   display: grid;
@@ -749,6 +750,7 @@ nav a.active::after {
 .forecast-table th:first-child,
 .forecast-table td:first-child { padding-left: 0; text-align: left; }
 .forecast-table td { padding: 16px 18px; border-bottom: 1px solid #1a2230; font-size: 15px; font-weight: 500; text-align: right; }
+.forecast-table td.forecast-cashflow,
 .forecast-table td:last-child { font-weight: 700; }
 .forecast-note { margin-top: 16px; color: var(--text-secondary); font-size: 12px; }
 

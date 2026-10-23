@@ -11,12 +11,14 @@ _Update this file after every significant session._
 - Rebuilt the Financials dashboard as a restrained, flat dark-finance interface.
 - Preserved the existing monthly income, expenses, cashflow, net-worth, goals, allocation and activity metrics.
 - Added a live three-month cashflow forecast using €2,207 stable monthly income and average net spending from the current and previous calendar month.
+- Extended the forecast with projected net worth for every month and the net worth at the end of the three-month period.
+- Replaced stale snapshot-based allocation amounts with a percentage-only allocation derived from the user's shared holdings: Portfolio 57.8%, Cash 27.5%, Checking 7.6%, Gold 7.1%.
 - Added responsive desktop/mobile layouts and forecast calculation tests.
 
 ### Verification
 
-- New and affected tests: 21 passing.
-- Full suite: 307 passing; 4 unrelated pre-existing failures in stale date/message-routing tests.
+- New and affected tests: 42 passing, with one unrelated stale date-dependent test deselected.
+- Full suite: 309 passing; 4 unrelated pre-existing failures in stale date/message-routing tests.
 - Browser QA at 1440px and 390px: no page-level horizontal overflow.
 
 ---

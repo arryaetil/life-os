@@ -145,6 +145,27 @@ def test_financials_page_shows_three_month_forecast(client):
     assert "Stable monthly income" in response.text
     assert "2207.00" in response.text
 
+
+def test_financials_page_projects_net_worth_and_shows_percentage_allocation(client):
+    snap = {
+        "id": 1, "timestamp": "2026-05-15T10:00:00+00:00",
+        "cash": 2000.0, "investments": 8000.0, "crypto": 0.0,
+        "savings": 5000.0, "other_assets": 0.0, "liabilities": 0.0,
+        "total_net_worth": 15000.0, "notes": "",
+    }
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[snap]), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=snap), \
+         patch("app.dashboard.sheets.get_all_transactions", return_value=[]):
+        response = client.get("/financials")
+
+    assert "Net worth after 3 months" in response.text
+    assert "21621.00" in response.text
+    assert "Portfolio" in response.text and "57.8%" in response.text
+    assert "Cash" in response.text and "27.5%" in response.text
+    assert "Checking" in response.text and "7.6%" in response.text
+    assert "Gold" in response.text and "7.1%" in response.text
+    assert "21129.95" not in response.text
+
 def test_networth_page_empty_state(client):
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
          patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \

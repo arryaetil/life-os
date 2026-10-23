@@ -4,6 +4,8 @@
 - Added a three-month cashflow forecast based on €2,207 stable monthly income and average net expenses from the current and previous month.
 - Fully redesigned the Financials dashboard while preserving its existing KPIs and data flows.
 - Added responsive desktop/mobile presentation for the KPI strip, forecast table, net worth, allocation, chart and activity ledger.
+- Added projected net worth to each forecast month and a prominent end-of-forecast net-worth value.
+- Set asset allocation to percentage-only shared-holdings ratios: Portfolio 57.8%, Cash 27.5%, Checking 7.6%, Gold 7.1%.
 - Added forecast calculation and dashboard rendering tests.
 
 ## Files Changed
@@ -17,16 +19,15 @@
 - `vault/sessions/recent-sessions.md` — session record.
 
 ## Current State
-The Financials dashboard is implemented and browser-checked at 1440px and 390px with no page-level horizontal overflow. The forecast shows the next three calendar months and updates from transaction data on every request.
+The Financials dashboard is implemented and browser-checked at 1440px and 390px with no page-level horizontal overflow. The forecast shows the next three calendar months, projected net worth per month, and the ending net worth. Asset allocation is percentage-only and intentionally independent from the personal net-worth total because the source holdings are shared.
 
 ## Bugs / Blockers
-- The full suite has 307 passing tests and 4 unrelated pre-existing failures: one stale date-dependent category test and three Telegram message-routing expectations.
-- Local browser QA could not load remote Google Fonts and Chart.js because the CDN connection reset; the layout and canvas mount were still verified.
+- The full suite has 309 passing tests and 4 unrelated pre-existing failures: one stale date-dependent category test and three Telegram message-routing expectations.
 
 ## Next Exact Task
 1. Confirm the Railway deployment completed after the commit reaches `master`.
-2. Verify `/financials` on desktop and mobile against live transaction data.
-3. Optionally make the stable forecast income editable if the expected €2,207 changes frequently.
+2. Verify `/financials` shows the production net-worth forecast and percentage-only allocation.
+3. Update the fixed asset-allocation source amounts when the user's shared holdings change.
 
 ## Commands to Run
 ```bash

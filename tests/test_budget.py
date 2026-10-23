@@ -152,3 +152,14 @@ def test_cashflow_forecast_handles_january_year_boundary():
     assert [month["label"] for month in result["months"]] == [
         "February", "March", "April",
     ]
+
+
+def test_cashflow_forecast_projects_net_worth_each_month():
+    result = calculate_cashflow_forecast(
+        [], 2207.0, date(2026, 10, 23), current_net_worth=20_000.0,
+    )
+
+    assert [month["net_worth"] for month in result["months"]] == [
+        22_207.0, 24_414.0, 26_621.0,
+    ]
+    assert result["ending_net_worth"] == 26_621.0
