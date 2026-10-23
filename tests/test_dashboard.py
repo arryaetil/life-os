@@ -134,6 +134,17 @@ def test_financials_page_groups_current_month_money_metrics(client):
     assert "Monthly Cash Flow" in response.text
     assert "Monthly Net Worth Change" not in response.text
 
+
+def test_financials_page_shows_three_month_forecast(client):
+    with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
+         patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \
+         patch("app.dashboard.sheets.get_all_transactions", return_value=[]):
+        response = client.get("/financials")
+
+    assert "3-month forecast" in response.text
+    assert "Stable monthly income" in response.text
+    assert "2207.00" in response.text
+
 def test_networth_page_empty_state(client):
     with patch("app.dashboard.sheets.get_net_worth_history", return_value=[]), \
          patch("app.dashboard.sheets.get_first_net_worth_snapshot", return_value=None), \

@@ -1,5 +1,9 @@
 from datetime import date
-from app.budget import calculate_weekly_status, calculate_monthly_summary
+from app.budget import (
+    calculate_cashflow_forecast,
+    calculate_monthly_summary,
+    calculate_weekly_status,
+)
 
 TRANSACTIONS = [
     {
@@ -119,3 +123,32 @@ def test_monthly_kpis_reset_for_new_calendar_month():
     assert result["monthly_income"] == 0.0
     assert result["monthly_reimbursements"] == 0.0
     assert result["net_cashflow"] == 0.0
+
+
+def test_cashflow_forecast_uses_current_and_previous_month_net_expenses():
+    txns = [
+        {"month": "2026-09", "type": "Expense", "amount": 595.37, "notes": ""},
+        {"month": "2026-09", "type": "Income", "amount": 150.00, "notes": "[REIMBURSEMENT]"},
+        {"month": "2026-10", "type": "Expense", "amount": 526.88, "notes": ""},
+        {"month": "2026-10", "type": "Income", "amount": 150.42, "notes": "[REIMBURSEMENT]"},
+        {"month": "2026-10", "type": "Transfer", "amount": 20.00, "notes": ""},
+    ]
+
+    result = calculate_cashflow_forecast(txns, 2207.0, date(2026, 10, 23))
+
+    assert round(result["average_expenses"], 2) == 410.92
+    assert round(result["monthly_cashflow"], 2) == 1796.09
+    assert round(result["total_cashflow"], 2) == 5388.26
+    assert [month["label"] for month in result["months"]] == [
+        "November", "December", "January",
+    ]
+    assert result["source_months"] == ["September", "October"]
+
+
+def test_cashflow_forecast_handles_january_year_boundary():
+    result = calculate_cashflow_forecast([], 2207.0, date(2027, 1, 5))
+
+    assert result["source_months"] == ["December", "January"]
+    assert [month["label"] for month in result["months"]] == [
+        "February", "March", "April",
+    ]

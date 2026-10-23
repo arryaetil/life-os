@@ -4,6 +4,23 @@ _Update this file after every significant session._
 
 ---
 
+## 2026-10-23 — Financial Dashboard Redesign + Forecast
+
+### Completed
+
+- Rebuilt the Financials dashboard as a restrained, flat dark-finance interface.
+- Preserved the existing monthly income, expenses, cashflow, net-worth, goals, allocation and activity metrics.
+- Added a live three-month cashflow forecast using €2,207 stable monthly income and average net spending from the current and previous calendar month.
+- Added responsive desktop/mobile layouts and forecast calculation tests.
+
+### Verification
+
+- New and affected tests: 21 passing.
+- Full suite: 307 passing; 4 unrelated pre-existing failures in stale date/message-routing tests.
+- Browser QA at 1440px and 390px: no page-level horizontal overflow.
+
+---
+
 ## 2026-05-15 — Module 1.1 + Auth + Vault
 
 ### Completed

@@ -13,6 +13,7 @@ from app import networth as nw_module
 from app.categories import get_category, get_available_categories
 
 VALID_TRANSACTION_TYPES = {"Expense", "Income", "Transfer", "Investment"}
+FORECAST_MONTHLY_INCOME = 2207.0
 
 _ptb_app = None
 
@@ -108,6 +109,10 @@ async def financials_page(request: Request):
     history = sheets.get_net_worth_history(limit=30)
     all_transactions = sheets.get_all_transactions()
     monthly = budget_module.calculate_monthly_summary(all_transactions)
+    forecast = budget_module.calculate_cashflow_forecast(
+        all_transactions,
+        FORECAST_MONTHLY_INCOME,
+    )
     selected_range = request.query_params.get("range", "ALL").upper()
     if selected_range not in nw_module.CHART_RANGES:
         selected_range = "ALL"
@@ -145,6 +150,7 @@ async def financials_page(request: Request):
         "live_nw": live_nw,
         "history": history,
         "monthly": monthly,
+        "forecast": forecast,
         "goals": goals,
         "allocation": allocation,
         "max_asset": max_asset,

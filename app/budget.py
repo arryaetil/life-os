@@ -1,3 +1,4 @@
+import calendar
 from datetime import date
 from app.utils import get_week_start, get_month
 
@@ -93,4 +94,50 @@ def calculate_monthly_summary(
         "net_cashflow": monthly_income - monthly_spent,
         "by_category": dict(sorted(by_category.items(), key=lambda x: x[1], reverse=True)),
         "impulse_total": impulse_total,
+    }
+
+
+def calculate_cashflow_forecast(
+    transactions: list[dict],
+    stable_monthly_income: float,
+    reference_date: date | None = None,
+    months: int = 3,
+) -> dict:
+    """Forecast cash flow from the average net spend of this and last month."""
+    if reference_date is None:
+        reference_date = date.today()
+
+    previous_year = reference_date.year if reference_date.month > 1 else reference_date.year - 1
+    previous_month = reference_date.month - 1 if reference_date.month > 1 else 12
+    previous_date = date(previous_year, previous_month, 1)
+
+    current = calculate_monthly_summary(transactions, reference_date)
+    previous = calculate_monthly_summary(transactions, previous_date)
+    average_expenses = (current["monthly_spent"] + previous["monthly_spent"]) / 2
+    monthly_cashflow = stable_monthly_income - average_expenses
+
+    forecast_months = []
+    year, month = reference_date.year, reference_date.month
+    for _ in range(months):
+        month += 1
+        if month == 13:
+            month = 1
+            year += 1
+        forecast_months.append({
+            "label": calendar.month_name[month],
+            "income": stable_monthly_income,
+            "expenses": average_expenses,
+            "cashflow": monthly_cashflow,
+        })
+
+    return {
+        "stable_income": stable_monthly_income,
+        "average_expenses": average_expenses,
+        "monthly_cashflow": monthly_cashflow,
+        "total_income": stable_monthly_income * months,
+        "total_expenses": average_expenses * months,
+        "total_cashflow": monthly_cashflow * months,
+        "months": forecast_months,
+        "source_months": [calendar.month_name[previous_month], calendar.month_name[reference_date.month]],
+        "current_through": reference_date.strftime("%d %B").lstrip("0"),
     }

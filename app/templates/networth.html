@@ -1,216 +1,185 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="section-header">Current Calendar Month — {{ monthly.month }} (month to date)</div>
-<div class="kpi-sub" style="margin: -8px 0 14px;">From the 1st through today · resets automatically each new month</div>
-<div class="kpi-grid">
-  <div class="glass-card">
-    <div class="kpi-label">Monthly Income</div>
-    <div class="kpi-value positive">{{ monthly.monthly_income | format_currency }}</div>
-    <div class="kpi-sub">earned income</div>
-  </div>
-
-  <div class="glass-card">
-    <div class="kpi-label">Monthly Expenses</div>
-    <div class="kpi-value">{{ monthly.monthly_spent | format_currency }}</div>
-    <div class="kpi-sub">after {{ monthly.monthly_reimbursements | format_currency }} reimbursements</div>
-  </div>
-
-  <div class="glass-card">
-    <div class="kpi-label">Monthly Cash Flow</div>
-    <div class="kpi-value {% if monthly.net_cashflow >= 0 %}positive{% else %}danger{% endif %}">
-      {{ monthly.net_cashflow | format_currency }}
+<main class="financial-dashboard">
+  <header class="dashboard-hero">
+    <div>
+      <div class="dashboard-eyebrow">{{ monthly.month }} · month to date</div>
+      <h1>Financial overview</h1>
+      <p>Income, expenses and cash flow from the first of the month through today.</p>
     </div>
-    <div class="kpi-sub">{{ monthly.month }} income minus expenses</div>
-  </div>
-</div>
+    <button class="dashboard-add" type="button" onclick="openAddModal()" aria-label="Add transaction">
+      <span aria-hidden="true">+</span> Add transaction
+    </button>
+  </header>
 
-<div class="section-header" style="margin-top: 20px;">Net Worth</div>
-<div class="kpi-grid">
-  <div class="glass-card">
-    <div class="kpi-label">Net Worth (Live)</div>
-    <div class="kpi-value {% if live_nw >= 0 %}positive{% else %}danger{% endif %}">
-      {{ live_nw | format_currency }}
+  <section class="money-strip" aria-label="Current month cash flow">
+    <div class="money-metric">
+      <span>Monthly Income</span>
+      <strong>{{ monthly.monthly_income | format_currency }}</strong>
+      <small>earned income</small>
     </div>
+    <div class="money-metric">
+      <span>Monthly Expenses</span>
+      <strong>{{ monthly.monthly_spent | format_currency }}</strong>
+      <small>after {{ monthly.monthly_reimbursements | format_currency }} reimbursements</small>
+    </div>
+    <div class="money-metric money-metric-primary">
+      <span>Monthly Cash Flow</span>
+      <strong class="{% if monthly.net_cashflow >= 0 %}positive{% else %}danger{% endif %}">
+        {% if monthly.net_cashflow >= 0 %}+{% endif %}{{ monthly.net_cashflow | format_currency }}
+      </strong>
+      <small>income minus expenses</small>
+    </div>
+  </section>
+
+  <section class="forecast-section" aria-labelledby="forecast-title">
+    <div class="section-intro">
+      <div>
+        <div class="dashboard-eyebrow">Forward view</div>
+        <h2 id="forecast-title">3-month forecast</h2>
+        <p>Based on average net expenses from {{ forecast.source_months[0] }} and {{ forecast.source_months[1] }}.</p>
+      </div>
+      <div class="forecast-total">
+        <span>3-month outlook</span>
+        <strong class="{% if forecast.total_cashflow >= 0 %}positive{% else %}danger{% endif %}">
+          {% if forecast.total_cashflow >= 0 %}+{% endif %}{{ forecast.total_cashflow | format_currency }}
+        </strong>
+      </div>
+    </div>
+
+    <div class="forecast-summary">
+      <div><span>Stable monthly income</span><strong>{{ forecast.stable_income | format_currency }}</strong></div>
+      <div><span>Average expenses</span><strong>{{ forecast.average_expenses | format_currency }}</strong></div>
+      <div>
+        <span>Projected cash flow</span>
+        <strong class="{% if forecast.monthly_cashflow >= 0 %}positive{% else %}danger{% endif %}">
+          {% if forecast.monthly_cashflow >= 0 %}+{% endif %}{{ forecast.monthly_cashflow | format_currency }}
+        </strong>
+      </div>
+    </div>
+
+    <div class="forecast-table-wrap">
+      <table class="forecast-table">
+        <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Cash flow</th></tr></thead>
+        <tbody>
+          {% for item in forecast.months %}
+          <tr>
+            <td>{{ item.label }}</td>
+            <td>{{ item.income | format_currency }}</td>
+            <td>{{ item.expenses | format_currency }}</td>
+            <td class="{% if item.cashflow >= 0 %}positive{% else %}danger{% endif %}">
+              {% if item.cashflow >= 0 %}+{% endif %}{{ item.cashflow | format_currency }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="forecast-note">{{ forecast.source_months[1] }} is month-to-date through {{ forecast.current_through }}.</p>
+  </section>
+
+  <section class="networth-section" aria-labelledby="networth-title">
+    <div class="section-intro compact">
+      <div><div class="dashboard-eyebrow">Long-term position</div><h2 id="networth-title">Net worth</h2></div>
+    </div>
+
+    <div class="networth-strip">
+      <div class="networth-total">
+        <span>Net Worth (Live)</span>
+        <strong class="{% if live_nw >= 0 %}positive{% else %}danger{% endif %}">{{ live_nw | format_currency }}</strong>
+        {% if latest %}<small>Baseline {{ latest.timestamp[:10] }} · {{ latest.total_net_worth | format_currency }}</small>{% endif %}
+      </div>
+      {% for goal in goals %}
+      <div class="goal-progress">
+        <div class="goal-heading"><span>Goal {{ goal.label }}</span><strong>{{ goal.pct }}%</strong></div>
+        <div class="progress-track"><div class="progress-fill {% if goal.achieved %}positive{% endif %}" style="width: {{ goal.pct }}%"></div></div>
+        <small>{% if goal.achieved %}Achieved{% else %}{{ goal.remaining | format_currency }} to go{% endif %}</small>
+      </div>
+      {% endfor %}
+    </div>
+
     {% if latest %}
-    <div class="kpi-sub">baseline {{ latest.timestamp[:10] }}: {{ latest.total_net_worth | format_currency }}</div>
-    {% else %}
-    <div class="kpi-sub">No data yet</div>
-    {% endif %}
-  </div>
-
-  {% for goal in goals %}
-  <div class="glass-card">
-    <div class="kpi-label">Goal {{ goal.label }}</div>
-    <div class="kpi-value {% if goal.achieved %}positive{% else %}accent{% endif %}">
-      {{ goal.pct }}%
-    </div>
-    <div class="progress-track">
-      <div class="progress-fill {% if goal.achieved %}positive{% endif %}"
-           style="width: {{ goal.pct }}%"></div>
-    </div>
-    <div class="kpi-sub">
-      {% if goal.achieved %}
-        🎉 Achieved!
-      {% else %}
-        {{ goal.remaining | format_currency }} to go
-      {% endif %}
-    </div>
-  </div>
-  {% endfor %}
-
-</div>
-
-{% if latest %}
-
-<div class="glass-card" style="margin-bottom: 20px;">
-  <div class="section-header">Asset Breakdown (Current)</div>
-  {% if allocation %}
-    {% for a in allocation %}
-    <div class="cat-row">
-      <div class="cat-name">{{ a.label }}</div>
-      <div class="cat-track">
-        <div class="cat-fill {% if a.color == 'danger' %}danger-fill{% endif %}"
-             style="width: {{ (a.amount / max_asset * 100) | round(1) }}%"></div>
-      </div>
-      <div class="cat-amount {% if a.color == 'danger' %}danger{% endif %}">
-        {{ a.amount | format_currency }}
-      </div>
-    </div>
-    {% endfor %}
-  {% else %}
-    <p style="color: var(--text-secondary); font-size: 14px;">No asset breakdown available.</p>
-  {% endif %}
-</div>
-
-<div class="glass-card" style="margin-bottom: 20px;">
-  <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-    <span>Net Worth Over Time</span>
-    <span style="display:flex;gap:6px;align-items:center;">
-      {% for r in chart_ranges %}
-      <a href="/financials?range={{ r }}"
-         style="font-size:12px;padding:5px 9px;border-radius:6px;text-decoration:none;border:1px solid rgba(255,255,255,0.12);color:{% if selected_range == r %}#fff{% else %}var(--text-secondary){% endif %};background:{% if selected_range == r %}rgba(63,90,245,0.35){% else %}rgba(255,255,255,0.04){% endif %};">
-        {{ r }}
-      </a>
-      {% endfor %}
-    </span>
-  </div>
-  {% if chart_values | length >= 1 %}
-  <div style="position: relative; height: 240px;">
-    <canvas id="nwChart"></canvas>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script>
-    (function() {
-      const ctx = document.getElementById('nwChart');
-      const labels = {{ chart_labels | tojson }};
-      const values = {{ chart_values | tojson }};
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Net Worth',
-            data: values,
-            borderColor: '#3F5AF5',
-            backgroundColor: 'rgba(63,90,245,0.08)',
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#3F5AF5',
-            pointBorderColor: '#3F5AF5',
-            pointRadius: 4,
-            pointHoverRadius: 6,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: 'rgba(8,12,20,0.9)',
-              borderColor: 'rgba(255,255,255,0.1)',
-              borderWidth: 1,
-              callbacks: {
-                label: function(ctx) { return '€' + ctx.parsed.y.toLocaleString('en-IE', {minimumFractionDigits: 2}); }
-              }
-            }
-          },
-          scales: {
-            x: {
-              ticks: { color: 'rgba(255,255,255,0.45)', font: { size: 11 } },
-              grid:  { color: 'rgba(255,255,255,0.05)' }
-            },
-            y: {
-              ticks: {
-                color: 'rgba(255,255,255,0.45)',
-                font: { size: 11 },
-                callback: function(v) { return '€' + v.toLocaleString(); }
-              },
-              grid: { color: 'rgba(255,255,255,0.05)' }
-            }
-          }
-        }
-      });
-    })();
-  </script>
-  {% else %}
-  <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.7;">
-    Log a snapshot to see your net worth trend.<br>
-    Send via Telegram: <code style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;">net worth 15000</code>
-  </p>
-  {% endif %}
-</div>
-
-<div class="glass-card">
-  <div class="section-header">Net Worth Activity</div>
-  {% if activity_feed %}
-  <div class="activity-feed">
-    {% for event in activity_feed %}
-    <div class="activity-item">
-      <div class="activity-icon {{ event.event_type }}">
-        {% if event.event_type == "income" %}+{% elif event.event_type == "expense" %}-{% else %}•{% endif %}
-      </div>
-      <div class="activity-main">
-        <div class="activity-topline">
-          <span class="activity-type">{{ event.event_type }}</span>
-          <span class="activity-time">{{ event.timestamp[:16].replace("T", " ") }}</span>
-        </div>
-        <div class="activity-description">{{ event.description }}</div>
-      </div>
-      <div class="activity-amount">
-        {% if event.event_type == "baseline" %}
-          <div class="activity-impact neutral">Baseline</div>
-          <div class="activity-value">{{ event.amount | format_currency }}</div>
-        {% else %}
-          <div class="activity-impact {% if event.impact >= 0 %}positive{% else %}danger{% endif %}">
-            {% if event.impact >= 0 %}+{% endif %}{{ event.impact | format_currency }}
+    <div class="insight-grid">
+      <section class="insight-panel chart-panel" aria-labelledby="chart-title">
+        <div class="panel-header">
+          <h3 id="chart-title">Net worth over time</h3>
+          <div class="range-switcher" aria-label="Chart range">
+            {% for r in chart_ranges %}<a href="/financials?range={{ r }}" class="{% if selected_range == r %}active{% endif %}">{{ r }}</a>{% endfor %}
           </div>
-          <div class="activity-value">{{ event.amount | format_currency }}</div>
-        {% endif %}
-      </div>
+        </div>
+        {% if chart_values | length >= 1 %}<div class="chart-frame"><canvas id="nwChart"></canvas></div>{% endif %}
+      </section>
+
+      <section class="insight-panel allocation-panel" aria-labelledby="allocation-title">
+        <h3 id="allocation-title">Asset allocation</h3>
+        {% if allocation %}
+          {% for a in allocation %}
+          <div class="allocation-row">
+            <div class="allocation-meta"><span>{{ a.label }}</span><strong class="{% if a.color == 'danger' %}danger{% endif %}">{{ a.amount | format_currency }}</strong></div>
+            <div class="cat-track"><div class="cat-fill {% if a.color == 'danger' %}danger-fill{% endif %}" style="width: {{ (a.amount / max_asset * 100) | round(1) }}%"></div></div>
+          </div>
+          {% endfor %}
+        {% else %}<p class="empty-copy">No asset breakdown available.</p>{% endif %}
+      </section>
     </div>
-      {% endfor %}
-  </div>
-  {% else %}
-  <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.7;">
-    No activity yet. Income and expenses after your baseline will appear here.
-  </p>
-  {% endif %}
-</div>
 
-{% else %}
+    <section class="activity-section" aria-labelledby="activity-title">
+      <div class="panel-header"><h3 id="activity-title">Net Worth Activity</h3></div>
+      {% if activity_feed %}
+      <div class="activity-feed">
+        {% for event in activity_feed %}
+        <div class="activity-item">
+          <div class="activity-icon {{ event.event_type }}">{% if event.event_type == "income" %}+{% elif event.event_type == "expense" %}-{% else %}•{% endif %}</div>
+          <div class="activity-main">
+            <div class="activity-topline"><span class="activity-type">{{ event.event_type }}</span><span class="activity-time">{{ event.timestamp[:16].replace("T", " ") }}</span></div>
+            <div class="activity-description">{{ event.description }}</div>
+          </div>
+          <div class="activity-amount">
+            {% if event.event_type == "baseline" %}<div class="activity-impact neutral">Baseline</div>{% else %}<div class="activity-impact {% if event.impact >= 0 %}positive{% else %}danger{% endif %}">{% if event.impact >= 0 %}+{% endif %}{{ event.impact | format_currency }}</div>{% endif %}
+            <div class="activity-value">{{ event.amount | format_currency }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="empty-copy">No activity yet. Income and expenses after your baseline will appear here.</p>{% endif %}
+    </section>
+    {% else %}
+    <section class="empty-networth"><h3>No net worth data yet</h3><p>Log your first snapshot via Telegram to start tracking long-term progress.</p></section>
+    {% endif %}
+  </section>
+</main>
 
-<div class="glass-card">
-  <div class="section-header">No Net Worth Data Yet</div>
-  <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.9;">
-    Log your first snapshot via Telegram:<br><br>
-    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth 15000</code><br>
-    <code style="background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:8px;">net worth cash 2000 investments 5000 savings 3000</code><br><br>
-    Or send <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">/networth</code> to the bot.
-  </p>
-</div>
-
+{% if latest and chart_values | length >= 1 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  (function() {
+    const ctx = document.getElementById('nwChart');
+    const labels = {{ chart_labels | tojson }};
+    const values = {{ chart_values | tojson }};
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{
+        label: 'Net worth', data: values, borderColor: '#5B7CFF',
+        backgroundColor: 'rgba(91,124,255,.08)', fill: true, tension: .35,
+        borderWidth: 2, pointBackgroundColor: '#5B7CFF', pointBorderColor: '#101620',
+        pointBorderWidth: 2, pointRadius: 3, pointHoverRadius: 5
+      }]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: '#101620', borderColor: '#293344', borderWidth: 1,
+          padding: 12, displayColors: false,
+          callbacks: { label: c => '€' + c.parsed.y.toLocaleString('en-IE', {minimumFractionDigits: 2}) }
+        }},
+        scales: {
+          x: { ticks: { color: '#8992A3', font: { size: 11 } }, grid: { display: false }, border: { color: '#232B38' } },
+          y: { ticks: { color: '#8992A3', font: { size: 11 }, callback: v => '€' + v.toLocaleString() }, grid: { color: '#1A2230', borderDash: [3, 5] }, border: { display: false } }
+        }
+      }
+    });
+  })();
+</script>
 {% endif %}
 
 {% endblock %}
