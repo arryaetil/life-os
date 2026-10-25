@@ -24,6 +24,12 @@ python scripts/career_remote.py approve <application_id>
    - Big Four careers sites: werkenbijkpmg.nl, werkenbijdeloitte.nl, PwC (pwc.wd3.myworkdayjobs.com, pwc.nl), careers.ey.com.
    - Company career pages and their public applicant systems (Greenhouse, Lever, Recruitee, Workday, SmartRecruiters).
    - Web search for the roles below, e.g. `"AI consultant" graduate Netherlands 2027`, `"pre-sales" junior AI Netherlands`.
+   - Fast, reliable lists (public JSON that the careers pages themselves load; keep requests few):
+     Deloitte `https://werkenbijdeloitte.nl/data/jobpostings.json` (filter categories "experience level"),
+     Workday sites via `POST https://<host>/wday/cxs/<tenant>/<site>/jobs` with `{"searchText": "...", "limit": 20, "offset": 0, "appliedFacets": {}}`
+     (Salesforce: `salesforce.wd12.myworkdayjobs.com`, tenant `salesforce`, site `External_Career_Site`),
+     Greenhouse boards via `https://boards-api.greenhouse.io/v1/boards/<company>/jobs?content=true` (e.g. `celonis`).
+   - Links on third-party boards (Magnet.me, aggregators) are often expired; always confirm on the employer's own site.
    - Do not scrape or automate linkedin.com or indeed.com. If a vacancy is only found there, look up the same
      vacancy on the employer's own site and use that URL.
 3. Open each promising vacancy and read the full text. Keep at most 15 per run, only roles that fit:
@@ -31,6 +37,9 @@ python scripts/career_remote.py approve <application_id>
      pre-sales / sales engineer, technical sales, business development (B2B tech/SaaS), AML/KYC analyst.
    - Level: internship (especially summer 2027), graduate/starter, junior, working student. Skip roles asking 3+ years.
    - Preferred employers: KPMG, Deloitte, PwC, EY (scoring gives them a bonus; still include strong others).
+   - Check eligibility, not just fit: Arrya finishes a bachelor (Economics & Business Economics, Information
+     Management) in June 2027. Big Four starter roles in the Netherlands mostly require a completed WO master;
+     graduate programs often name a graduation year (e.g. "2025 or 2026 graduate") or STEM degrees. Flag such gaps.
    - Region only matters for part-time work during studies (Limburg, Eindhoven, Aachen or remote).
      Internships and graduate jobs may be anywhere in the Netherlands or Europe.
 4. Write a JSON list and send it with `add-jobs`:
