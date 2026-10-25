@@ -181,6 +181,7 @@ def init_db() -> None:
         if get_vault_memory(key) is None and path.exists():
             set_vault_memory(key, path.read_text(encoding="utf-8"))
     seed_career_demo()
+    apply_career_knowledge_base()
     run_career_daily()
 
 def append_transaction(parsed: dict, category: str) -> int:
@@ -479,6 +480,19 @@ def seed_career_demo() -> None:
                 message="Hi Maya, I’m building my career around AI engineering and solution consulting, and your work leading AI solutions teams stood out. I’d value hearing what skills matter most for someone entering this field. Would you be open to connecting?",
                 status="draft", follow_up_on=(date.today() + timedelta(days=7)).isoformat(), is_demo=True,
             ))
+
+
+def apply_career_knowledge_base() -> bool:
+    """Upsert the versioned knowledge base once per version, so later manual edits survive restarts."""
+    from app.career_knowledge import FACTS, KNOWLEDGE_BASE_VERSION
+
+    applied = int(get_vault_memory("career_kb_version") or 0)
+    if applied >= KNOWLEDGE_BASE_VERSION:
+        return False
+    for category, label, value, status, source in FACTS:
+        set_career_fact(category, label, value, status, source)
+    set_vault_memory("career_kb_version", str(KNOWLEDGE_BASE_VERSION))
+    return True
 
 
 def store_career_jobs(jobs: list[dict]) -> dict:

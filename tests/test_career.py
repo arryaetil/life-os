@@ -229,3 +229,22 @@ def test_discovery_reports_missing_credentials():
     from app import database
     with patch.object(database.config, "ADZUNA_APP_ID", ""), patch.object(database.config, "ADZUNA_APP_KEY", ""):
         assert database.discover_career_jobs()["configured"] is False
+
+
+def test_knowledge_base_uses_linkedin_as_leading_source(client):
+    from app import database
+    facts = {(fact["category"], fact["label"]): fact for fact in database.get_career_dashboard()["facts"]}
+    assert facts[("skill", "Microsoft Foundry")]["verification_status"] == "user_confirmed"
+    assert facts[("skill", "Docker")]["verification_status"] == "unverified"
+    assert facts[("experience", "Etil — Solution Engineer")]["source_label"].startswith("LinkedIn")
+    assert "not yet obtained" in facts[("education", "Bachelor (in progress)")]["value"]
+    assert facts[("project", "KotStart web application")]["verification_status"] == "unverified"
+
+
+def test_knowledge_base_is_applied_once_per_version(client):
+    from app import database
+    database.set_career_fact("skill", "Python", "Python", "unverified", "manual edit")
+    assert database.apply_career_knowledge_base() is False
+    python = [f for f in database.get_career_dashboard()["facts"] if f["label"] == "Python"][0]
+    assert python["verification_status"] == "unverified"
+    database.set_career_fact("skill", "Python", "Python", "user_confirmed", "LinkedIn profile, 2026-10-25")
