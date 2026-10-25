@@ -89,9 +89,11 @@ def test_monday_summary_idempotent(mock_txns, mock_send):
     assert mock_send.call_count == 2
 
 
-def test_create_scheduler_has_five_jobs():
+def test_create_scheduler_includes_daily_career_job():
     from app.scheduler import create_scheduler
     s = create_scheduler()
     s.start()
-    assert len(s.get_jobs()) == 5
+    job_ids = {job.id for job in s.get_jobs()}
+    assert len(job_ids) == 6
+    assert "daily_career_agent" in job_ids
     s.shutdown(wait=False)

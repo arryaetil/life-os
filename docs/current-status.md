@@ -1,6 +1,6 @@
 # Current Status — LifeOS
 
-_Last updated: 2026-05-22_
+_Last updated: 2026-10-25_
 
 ---
 
@@ -8,12 +8,12 @@ _Last updated: 2026-05-22_
 
 | Check | Status |
 |-------|--------|
-| Tests | ✅ 81 passing |
+| Tests | ✅ Career/scheduler suite passing; full suite 322 passing with 4 pre-existing failures |
 | Railway deploy | ✅ Live at https://lifeos-aw.up.railway.app |
 | Telegram bot | ✅ Webhook active |
 | PostgreSQL | ✅ Railway-managed |
 | AI parsing | ✅ GPT-4o-mini (regex fallback if no key) |
-| Scheduler | ✅ APScheduler running in lifespan |
+| Scheduler | ✅ APScheduler running in lifespan, including daily Career run at 07:30 |
 
 ---
 
@@ -57,6 +57,20 @@ _Last updated: 2026-05-22_
 - Auto-updates coach-memory.md every 10 messages, syncs to Obsidian vault
 - Reads `vault/personal/goals.md` and `vault/personal/values.md`
 
+## Module 5.0 — Career Agent MVP ✅ DONE
+
+- New integrated dashboard page at `/career`, responsive at desktop and mobile widths
+- Deterministic daily scan chooses at most one opportunity above the threshold
+- Transparent 100-point score with strengths, gaps and seniority penalty
+- Career claims are limited to user-confirmed or document-verified facts
+- CV and motivation materials can be exported as DOCX/PDF in memory
+- Explicit approval only marks materials ready for manual submission; it performs no external action
+- Outreach is copy-only and can be marked sent after the user sends it manually
+- Demo vacancies and contact are visibly labelled; knowledge base and live sources are deferred
+- Career routes require HTTP Basic auth in production via `CAREER_ACCESS_KEY`
+- Codex is the primary control plane through `scripts/career_agent.py`; the dashboard itself is read-only
+- Career knowledge now includes four flagship, document-verified GitHub projects and a user-confirmed showcase goal
+
 ---
 
 ## Next: Module 1.2 — Portfolio / Accounts Tracker
@@ -87,5 +101,6 @@ _Last updated: 2026-05-22_
 | `OPENAI_API_KEY` | Yes | GPT-4o-mini for parsing + coach |
 | `ANTHROPIC_API_KEY` | Optional | Claude Haiku fallback |
 | `WEBHOOK_BASE_URL` | Yes (prod) | Railway URL, no trailing slash |
+| `CAREER_ACCESS_KEY` | Yes (prod) | Password for `/career`; username is `lifeos` |
 | `WEEKLY_BUDGET` | No | Default: 90 (euros) |
 | `LOCAL_POLLING` | No | Set `true` for local dev |

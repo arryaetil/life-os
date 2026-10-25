@@ -184,6 +184,7 @@ pytest tests/test_parser.py -v  # Specific file
 | 2.0 | Goals tracker | NOT STARTED |
 | 3.0 | Health/workout tracker | NOT STARTED |
 | 4.0 | Unified LifeOS dashboard | NOT STARTED |
+| 5.0 | Career Agent | MVP COMPLETE |
 
 Update this table as modules are completed.
 
