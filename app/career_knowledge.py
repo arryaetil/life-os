@@ -1,7 +1,7 @@
 """Career knowledge base seed. LinkedIn (25-10-2026) is the leading source; the AI-drafted
 Codex brief only adds unverified items that must be confirmed before use in applications."""
 
-KNOWLEDGE_BASE_VERSION = 3
+KNOWLEDGE_BASE_VERSION = 4
 
 LINKEDIN = "LinkedIn profile, 2026-10-25"
 BRIEF = "Codex career brief (self-reported, AI-drafted; not leading)"
@@ -29,6 +29,7 @@ FACTS = [
     ("project", "Lead finder", "Worked on a lead-finding feature in the sales assistant that searches public sources and job postings for potential clients. Use for sales and business-development vacancies.", "user_confirmed", REVIEW),
     ("project", "Public-source research tools", "At Etil, built research tools that collect and check public information on companies and people, for customer due diligence and negative-news screening, with a human reviewer making the final call (Python, FastAPI, LangGraph). Internal names: KYC4etil, KYCX.", "user_confirmed", REVIEW + "; github.com/arryaetil/KYC4etil"),
     ("project", "AI voice agents", "At Etil, configured and tested AI voice agents built with Synthflow that handle customer phone calls.", "user_confirmed", REVIEW),
+    ("project", "Personal AI assistant for finances and career", "Built an AI product (Telegram bot, FastAPI, PostgreSQL, web dashboard, Railway) that tracks spending and net worth and finds and scores job vacancies, with human approval before any action.", "user_confirmed", "User, 2026-10-25; github.com/arryaetil/life-os"),
     ("project", "Weather-based revenue forecasting", "Co-developed with two fellow students an automated Power BI dashboard that combines weather forecasts with historical sales data to predict daily revenue seven days ahead, using a regression model, Python, Power Query (ETL) and Azure cloud storage.", "user_confirmed", LINKEDIN),
     # Development, volunteering, languages
     ("certification", "Microsoft AI-103", "Preparing for Microsoft certification AI-103 (exam planned November 2026). Not yet obtained.", "user_confirmed", "User, 2026"),
