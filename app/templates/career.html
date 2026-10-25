@@ -21,12 +21,13 @@
   <section class="career-grid career-opportunity-grid">
     <article class="career-panel career-opportunity">
       <div class="career-panel-head">
-        <div><span class="career-eyebrow">Today’s strongest opportunity</span><span class="career-demo-tag">Demo vacancy</span></div>
+        <div><span class="career-eyebrow">Today’s strongest opportunity</span>{% if selected_job.is_demo %}<span class="career-demo-tag">Demo vacancy</span>{% endif %}</div>
         <div class="career-score" aria-label="Match score {{ selected_job.match_score|int }} percent"><strong>{{ selected_job.match_score|int }}</strong><span>/100</span></div>
       </div>
       <h2>{{ selected_job.title }}</h2>
       <p class="career-company">{{ selected_job.company }} · {{ selected_job.location }} · {{ selected_job.work_mode|title }}</p>
       <p class="career-description">{{ selected_job.description }}</p>
+      {% if not selected_job.is_demo %}<p class="career-company"><a href="{{ selected_job.application_url }}" target="_blank" rel="noopener noreferrer">View vacancy</a> · {{ selected_job.source }}{% if selected_job.posting_date %} · posted {{ selected_job.posting_date }}{% endif %}</p>{% endif %}
       <div class="career-split-list">
         <div>
           <h3>Why it fits</h3>
@@ -104,7 +105,7 @@
     <div class="career-table-wrap">
       <table class="career-table">
         <thead><tr><th>Role</th><th>Location</th><th>Match</th><th>Status</th></tr></thead>
-        <tbody>{% for job in jobs %}<tr><td><strong>{{ job.title }}</strong><span>{{ job.company }}</span></td><td>{{ job.location }}</td><td><strong>{{ job.match_score|int if job.match_score is not none else '—' }}{% if job.match_score is not none %}%{% endif %}</strong></td><td><span class="career-status">{{ job.status }}</span></td></tr>{% endfor %}</tbody>
+        <tbody>{% for job in jobs %}<tr><td><strong>{% if job.is_demo %}{{ job.title }}{% else %}<a href="{{ job.application_url }}" target="_blank" rel="noopener noreferrer">{{ job.title }}</a>{% endif %}</strong><span>{{ job.company }}</span></td><td>{{ job.location }}</td><td><strong>{{ job.match_score|int if job.match_score is not none else '—' }}{% if job.match_score is not none %}%{% endif %}</strong></td><td><span class="career-status">{{ job.status }}</span></td></tr>{% endfor %}</tbody>
       </table>
     </div>
   </section>

@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Operate the Life OS Career Agent")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status", help="Show the current Career dashboard state")
+    commands.add_parser("discover", help="Fetch real vacancies from Adzuna without selecting one")
 
     fact = commands.add_parser("fact-set", help="Add or update a verified Career fact")
     fact.add_argument("category")
@@ -53,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "status":
             _print(database.get_career_dashboard())
+        elif args.command == "discover":
+            _print(database.discover_career_jobs())
         elif args.command == "fact-set":
             _print(database.set_career_fact(args.category, args.label, args.value, args.status, args.source_label))
         elif args.command == "run":

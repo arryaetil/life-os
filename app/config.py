@@ -13,3 +13,5 @@ WEBHOOK_BASE_URL: str = os.environ.get("WEBHOOK_BASE_URL", "")
 LOCAL_POLLING: bool = os.environ.get("LOCAL_POLLING", "false").lower() == "true"
 TELEGRAM_OWNER_CHAT_ID: str = os.environ.get("TELEGRAM_OWNER_CHAT_ID", "")
 CAREER_ACCESS_KEY: str = os.environ.get("CAREER_ACCESS_KEY", "")
+ADZUNA_APP_ID: str = os.environ.get("ADZUNA_APP_ID", "")
+ADZUNA_APP_KEY: str = os.environ.get("ADZUNA_APP_KEY", "")

@@ -481,10 +481,56 @@ def seed_career_demo() -> None:
             ))
 
 
+def store_career_jobs(jobs: list[dict]) -> dict:
+    """Insert new vacancies, skipping known source ids and title+company duplicates across sources."""
+    added = skipped = 0
+    with _engine.begin() as conn:
+        known_ids = {(row.source, row.external_id) for row in conn.execute(select(career_jobs.c.source, career_jobs.c.external_id))}
+        known_pairs = {(row.title.lower(), row.company.lower()) for row in conn.execute(select(career_jobs.c.title, career_jobs.c.company))}
+        for job in jobs:
+            pair = (job["title"].lower(), job["company"].lower())
+            if (job["source"], job["external_id"]) in known_ids or pair in known_pairs:
+                skipped += 1
+                continue
+            values = {key: value for key, value in job.items() if key not in {"required_skills", "preferred_skills"}}
+            conn.execute(insert(career_jobs).values(
+                **values,
+                required_skills_json=json.dumps(job["required_skills"]),
+                preferred_skills_json=json.dumps(job["preferred_skills"]),
+                match_score=None, score_breakdown_json="{}", strengths_json="[]", gaps_json="[]",
+                status="discovered", is_demo=False,
+            ))
+            known_ids.add((job["source"], job["external_id"]))
+            known_pairs.add(pair)
+            added += 1
+        if added or conn.execute(select(career_jobs.c.id).where(career_jobs.c.is_demo == False).limit(1)).fetchone():  # noqa: E712
+            # Real vacancies replace the demo slice in selection and on the dashboard.
+            conn.execute(update(career_jobs).where(career_jobs.c.is_demo == True, career_jobs.c.status == "discovered").values(status="demo_hidden"))  # noqa: E712
+        conn.execute(insert(career_audit).values(timestamp=datetime.now(timezone.utc).isoformat(), action="jobs_discovered", entity_type="job_source", entity_id="adzuna", detail_json=json.dumps({"added": added, "skipped": skipped})))
+    return {"added": added, "skipped": skipped}
+
+
+def discover_career_jobs() -> dict:
+    """Fetch real vacancies when Adzuna credentials are configured; otherwise report why not."""
+    from app.career_sources import adzuna_configured, fetch_adzuna_jobs
+
+    if not adzuna_configured(config.ADZUNA_APP_ID, config.ADZUNA_APP_KEY):
+        return {"configured": False, "added": 0, "skipped": 0, "errors": []}
+    fetched = fetch_adzuna_jobs(config.ADZUNA_APP_ID, config.ADZUNA_APP_KEY)
+    stored = store_career_jobs(fetched["jobs"])
+    return {"configured": True, "fetched": len(fetched["jobs"]), **stored, "errors": fetched["errors"]}
+
+
 def run_career_daily(run_date: str | None = None, minimum_score: int = 65) -> dict:
-    from app.career import score_job, verify_claims
+    from app.career import CAREER_SEARCH_PROFILE, score_job, verify_claims
 
     run_date = run_date or date.today().isoformat()
+    with _engine.connect() as conn:
+        existing = conn.execute(select(career_daily_runs).where(career_daily_runs.c.run_date == run_date)).fetchone()
+    if existing:
+        return _career_row(existing)
+    discovery = discover_career_jobs()
+
     with _engine.begin() as conn:
         existing = conn.execute(select(career_daily_runs).where(career_daily_runs.c.run_date == run_date)).fetchone()
         if existing:
@@ -492,10 +538,8 @@ def run_career_daily(run_date: str | None = None, minimum_score: int = 65) -> di
 
         facts = [_career_row(row) for row in conn.execute(select(career_facts))]
         profile = {
+            **CAREER_SEARCH_PROFILE,
             "skills": [fact["value"] for fact in facts if fact["category"] == "skill"],
-            "project_terms": ["ai agents", "research tools", "integrations", "automation"],
-            "target_roles": ["junior ai engineer", "junior ai solutions engineer", "ai application developer", "junior solution engineer", "associate solutions consultant", "junior business intelligence consultant", "junior data / ai consultant", "technical consultant"],
-            "locations": ["limburg", "eindhoven", "maastricht", "heerlen", "aachen", "remote"],
         }
         jobs = [_career_row(row) for row in conn.execute(select(career_jobs).where(career_jobs.c.status == "discovered"))]
         for job in jobs:
@@ -522,7 +566,7 @@ def run_career_daily(run_date: str | None = None, minimum_score: int = 65) -> di
             conn.execute(update(career_jobs).where(career_jobs.c.id == selected["id"]).values(status="selected"))
 
         contact = conn.execute(select(career_contacts).where(career_contacts.c.status == "draft").order_by(career_contacts.c.id).limit(1)).fetchone()
-        result = {"jobs_scored": len(jobs), "application_prepared": bool(selected), "reason": "Best qualified opportunity selected." if selected else "No job cleared the configured threshold."}
+        result = {"jobs_scored": len(jobs), "application_prepared": bool(selected), "reason": "Best qualified opportunity selected." if selected else "No job cleared the configured threshold.", "discovery": discovery}
         conn.execute(insert(career_daily_runs).values(run_date=run_date, status="completed", selected_job_id=selected["id"] if selected else None, contact_id=contact.id if contact else None, result_json=json.dumps(result)))
         conn.execute(insert(career_audit).values(timestamp=datetime.now(timezone.utc).isoformat(), action="daily_run_completed", entity_type="daily_run", entity_id=run_date, detail_json=json.dumps(result)))
         return {"run_date": run_date, "status": "completed", "selected_job_id": selected["id"] if selected else None, "contact_id": contact.id if contact else None, "result": result}
@@ -533,7 +577,9 @@ def get_career_dashboard() -> dict:
     with _engine.connect() as conn:
         run_row = conn.execute(select(career_daily_runs).where(career_daily_runs.c.run_date == run_date)).fetchone()
         run = _career_row(run_row) if run_row else None
-        jobs = [_career_row(row) for row in conn.execute(select(career_jobs).order_by(desc(career_jobs.c.match_score)))]
+        jobs = [_career_row(row) for row in conn.execute(
+            select(career_jobs).where(career_jobs.c.status != "demo_hidden").order_by(desc(career_jobs.c.match_score).nullslast()).limit(100)
+        )]
         facts = [_career_row(row) for row in conn.execute(select(career_facts).order_by(career_facts.c.category, career_facts.c.id))]
         contacts = [_career_row(row) for row in conn.execute(select(career_contacts).order_by(desc(career_contacts.c.id)))]
         application = None

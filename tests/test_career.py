@@ -11,12 +11,14 @@ PROFILE = {
     "project_terms": ["ai agents", "integrations", "automation"],
     "target_roles": ["junior ai solutions engineer"],
     "locations": ["eindhoven", "remote"],
+    "preferred_companies": {"KPMG": ["kpmg"], "EY": ["ey", "ernst young"]},
 }
 
 
 def test_score_job_is_transparent_and_totals_to_score():
     job = {
         "title": "Junior AI Solutions Engineer",
+        "company": "KPMG Nederland",
         "description": "Build AI agents, integrations, and automation.",
         "location": "Eindhoven, Netherlands",
         "work_mode": "hybrid",
@@ -146,3 +148,84 @@ def test_career_fact_can_be_updated_without_duplication(client):
     matches = [fact for fact in database.get_career_dashboard()["facts"] if fact["label"] == "Portfolio proof"]
     assert len(matches) == 1
     assert matches[0]["value"] == "Updated"
+
+
+def test_location_is_flexible_except_for_part_time_roles():
+    job = {"title": "AI Consultant", "company": "Acme", "description": "Graduate role.", "location": "Amsterdam, Netherlands",
+           "work_mode": "on-site", "required_skills": [], "preferred_skills": []}
+    full_time = score_job(job, PROFILE)
+    part_time = score_job({**job, "description": "Part-time werkstudent role."}, PROFILE)
+    assert full_time["breakdown"]["location"] == 10
+    assert part_time["breakdown"]["location"] == 0
+    assert "Part-time role outside the study region" in part_time["gaps"]
+
+
+def test_preferred_employer_matches_whole_words_only():
+    base = {"title": "AI Consultant", "description": "", "location": "Eindhoven", "work_mode": "hybrid",
+            "required_skills": [], "preferred_skills": []}
+    assert score_job({**base, "company": "EY"}, PROFILE)["breakdown"]["preferred_employer"] == 10
+    assert score_job({**base, "company": "Dept Key Partners"}, PROFILE)["breakdown"]["preferred_employer"] == 0
+    assert "Preferred employer: KPMG" in score_job({**base, "company": "KPMG Nederland"}, PROFILE)["strengths"]
+
+
+ADZUNA_RESULT = {
+    "id": "123", "title": "<strong>AI</strong> Consultant", "company": {"display_name": "PricewaterhouseCoopers"},
+    "location": {"display_name": "Amsterdam"}, "description": "Work with Python &amp; Azure on LLM projects.",
+    "redirect_url": "https://www.adzuna.nl/land/ad/123", "created": "2026-10-20T08:00:00Z",
+    "contract_time": "full_time", "salary_min": 3500, "salary_max": 4500,
+}
+
+
+def test_normalize_adzuna_cleans_text_and_extracts_skills():
+    from app.career_sources import normalize_adzuna
+    job = normalize_adzuna(ADZUNA_RESULT, "nl")
+    assert job["title"] == "AI Consultant"
+    assert job["company"] == "PricewaterhouseCoopers"
+    assert job["location"] == "Amsterdam, Netherlands"
+    assert job["source"] == "adzuna-nl"
+    assert {"Python", "Azure", "LLM"} <= set(job["required_skills"])
+    assert job["posting_date"] == "2026-10-20"
+
+
+def test_fetch_adzuna_keeps_going_when_one_search_fails():
+    import httpx
+    from app import career_sources
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 2:
+            return httpx.Response(500)
+        return httpx.Response(200, json={"results": [ADZUNA_RESULT]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as mock_client:
+        result = career_sources.fetch_adzuna_jobs("id", "key", client=mock_client)
+    assert len(calls) == len(career_sources.ADZUNA_SEARCHES)
+    # Repeats within one country collapse here; across countries they collapse when stored.
+    assert sorted(job["source"] for job in result["jobs"]) == ["adzuna-de", "adzuna-nl"]
+    assert len(result["errors"]) == 1
+    assert "key" not in result["errors"][0]
+
+
+def test_store_career_jobs_deduplicates_and_hides_demo_jobs(client):
+    from app import database
+    from app.career_sources import normalize_adzuna
+    job = normalize_adzuna({**ADZUNA_RESULT, "id": "store-test-1", "title": "Store Test Engineer"}, "nl")
+    same_role_other_source = {**job, "source": "adzuna-de", "external_id": "store-test-2"}
+    try:
+        assert database.store_career_jobs([job, same_role_other_source]) == {"added": 1, "skipped": 1}
+        assert database.store_career_jobs([job]) == {"added": 0, "skipped": 1}
+        jobs = database.get_career_dashboard()["jobs"]
+        assert any(item["title"] == "Store Test Engineer" for item in jobs)
+        assert not any(item["is_demo"] and item["status"] == "discovered" for item in jobs)
+    finally:
+        with database._engine.begin() as conn:
+            conn.execute(database.career_jobs.delete().where(database.career_jobs.c.title == "Store Test Engineer"))
+            conn.execute(database.update(database.career_jobs).where(database.career_jobs.c.status == "demo_hidden").values(status="discovered"))
+
+
+def test_discovery_reports_missing_credentials():
+    from app import database
+    with patch.object(database.config, "ADZUNA_APP_ID", ""), patch.object(database.config, "ADZUNA_APP_KEY", ""):
+        assert database.discover_career_jobs()["configured"] is False
