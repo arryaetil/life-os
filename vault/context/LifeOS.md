@@ -21,7 +21,7 @@ Input arrives primarily via Telegram natural language. Finance dashboard pages a
 
 **Module 1.4 (partial)** — Telegram supervision commands (`/status`, `/next`, `/git`, `/handoff`). `notify_me.py` for Claude→user push notifications. `create_handoff.py` for session continuity. `agent_state` DB table. Owner-only auth on all bot handlers.
 
-**Module 5.0 (MVP)** — A `/career` command center inside the existing dashboard. It runs an idempotent daily scan, ranks opportunities with a transparent fixed-weight score, prepares evidence-bound CV and motivation materials, exports DOCX/PDF, and requires explicit review before marking an application ready for manual submission. Outreach remains a copy-only draft; Life OS never sends messages or applications. Current vacancies and contacts are clearly marked demo data until real sources and the knowledge base are configured.
+**Module 5.0 (MVP)** — Codex is the Career Agent control plane; `/career` is its protected, read-only status view. A thin command surface runs an idempotent daily scan, ranks opportunities with a transparent fixed-weight score, prepares evidence-bound CV and motivation materials, exports DOCX/PDF, and records explicit review before manual submission. Outreach remains draft-only; Life OS never sends messages or applications. Current vacancies and contacts are clearly marked demo data until real sources and the knowledge base are configured.
 
 ---
 

@@ -8,7 +8,7 @@ _Last updated: 2026-10-25_
 
 | Check | Status |
 |-------|--------|
-| Tests | ✅ Career/scheduler suite passing; full suite 319 passing with 4 pre-existing failures |
+| Tests | ✅ Career/scheduler suite passing; full suite 320 passing with 4 pre-existing failures |
 | Railway deploy | ✅ Live at https://lifeos-aw.up.railway.app |
 | Telegram bot | ✅ Webhook active |
 | PostgreSQL | ✅ Railway-managed |
@@ -68,6 +68,7 @@ _Last updated: 2026-10-25_
 - Outreach is copy-only and can be marked sent after the user sends it manually
 - Demo vacancies and contact are visibly labelled; knowledge base and live sources are deferred
 - Career routes require HTTP Basic auth in production via `CAREER_ACCESS_KEY`
+- Codex is the primary control plane through `scripts/career_agent.py`; the dashboard itself is read-only
 
 ---
 

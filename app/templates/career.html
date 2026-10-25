@@ -3,11 +3,11 @@
 <main class="career-shell">
   <header class="career-hero">
     <div>
-      <div class="career-kicker"><span class="status-dot"></span> Daily run complete · demo mode</div>
+      <div class="career-kicker"><span class="status-dot"></span> Managed through Codex · demo mode</div>
       <h1>Career command center</h1>
-      <p>One high-confidence opportunity, evidence-bound application materials, and a human checkpoint before anything leaves Life OS.</p>
+      <p>Your read-only view of the work handled through Codex: one high-confidence opportunity, evidence-bound materials, and no external action without your instruction.</p>
     </div>
-    <button class="career-secondary" onclick="runCareerAgent(this)">Run today’s scan</button>
+    <span class="career-status">Chat-first control</span>
   </header>
 
   <section class="career-stat-strip" aria-label="Career agent summary">
@@ -69,11 +69,10 @@
       </article>
     </div>
     <div class="approval-bar">
-      <label><input type="checkbox" id="approval-confirm"> I reviewed the vacancy and every claim above.</label>
+      <p class="career-muted">Tell Codex when you have reviewed these materials. Approval only marks them ready for manual submission.</p>
       <div>
         <span class="document-links"><a href="/api/career/applications/{{ application.id }}/documents/cv.docx">CV · DOCX</a><a href="/api/career/applications/{{ application.id }}/documents/cv.pdf">CV · PDF</a><a href="/api/career/applications/{{ application.id }}/documents/motivation.pdf">Letter · PDF</a></span>
-        <span id="approval-message">Approval unlocks manual submission only.</span>
-        <button class="career-primary" id="approval-button" onclick="approveApplication({{ application.id }})" {% if application.status != 'pending_review' %}disabled{% endif %}>{{ 'Approve materials' if application.status == 'pending_review' else 'Materials approved' }}</button>
+        <span>{{ 'Ready for manual submission' if application.status == 'approved_for_manual_submission' else 'Waiting for your instruction in Codex' }}</span>
       </div>
     </div>
   </section>
@@ -87,11 +86,7 @@
       <p class="career-company">{{ selected_contact.role }} · {{ selected_contact.company }}</p>
       <p class="career-muted">{{ selected_contact.relevance }}</p>
       <blockquote id="outreach-message">{{ selected_contact.message }}</blockquote>
-      <div class="career-actions">
-        <button class="career-secondary" onclick="copyOutreach(this)">Copy draft</button>
-        <button class="career-secondary" onclick="markContactSent({{ selected_contact.id }}, this)" {% if selected_contact.status == 'sent_manually' %}disabled{% endif %}>{{ 'Recorded as sent' if selected_contact.status == 'sent_manually' else 'I sent this manually' }}</button>
-      </div>
-      <p class="career-note">Life OS never sends LinkedIn messages or connection requests.</p>
+      <p class="career-note">Status: {{ selected_contact.status|replace('_', ' ') }}. Ask Codex to refine the draft or record a message you sent manually. Life OS never sends LinkedIn messages or connection requests.</p>
     </article>
     {% endif %}
 
@@ -115,28 +110,4 @@
   </section>
 </main>
 
-<script>
-async function runCareerAgent(button) {
-  button.disabled = true; button.textContent = 'Scanning…';
-  await fetch('/api/career/run', {method: 'POST'});
-  window.location.reload();
-}
-async function approveApplication(id) {
-  const checkbox = document.getElementById('approval-confirm');
-  const message = document.getElementById('approval-message');
-  if (!checkbox.checked) { message.textContent = 'Confirm your review first.'; return; }
-  const response = await fetch(`/api/career/applications/${id}/approve`, {method: 'POST'});
-  const data = await response.json();
-  message.textContent = response.ok ? 'Approved. No application was submitted.' : (data.detail || 'Approval failed.');
-  if (response.ok) document.getElementById('approval-button').disabled = true;
-}
-async function copyOutreach(button) {
-  await navigator.clipboard.writeText(document.getElementById('outreach-message').textContent.trim());
-  button.textContent = 'Copied';
-}
-async function markContactSent(id, button) {
-  const response = await fetch(`/api/career/contacts/${id}/mark-sent`, {method: 'POST'});
-  if (response.ok) { button.textContent = 'Recorded as sent'; button.disabled = true; }
-}
-</script>
 {% endblock %}

@@ -7,10 +7,13 @@
 - Added explicit human approval, manual-only outreach tracking and safe field-planning boundaries for CAPTCHA/ambiguous questions.
 - Added in-memory DOCX/PDF document generation and a 07:30 scheduler job.
 - Added production-only HTTP Basic protection for all Career pages and APIs.
+- Made Codex the primary Career control plane through `scripts/career_agent.py`; `/career` is now read-only.
 - Added a responsive Life OS interface and Career test coverage.
 
 ## Files Changed
 - `app/career.py` — scoring, claim verification, form safety planning and document generation.
+- `scripts/career_agent.py` — thin Codex-operated command surface.
+- `docs/career-agent.md` — chat-first usage and safety boundaries.
 - `app/config.py` — `CAREER_ACCESS_KEY` configuration.
 - `app/database.py` — isolated Career persistence and workflows.
 - `app/dashboard.py` — Career page and API endpoints.

@@ -18,13 +18,19 @@ _Update this file after every significant session._
 ### Verification
 
 - Career tests: 10 passing.
-- Full suite: 319 passing; 4 unrelated pre-existing failures remain unchanged.
+- Full suite: 320 passing; 4 unrelated pre-existing failures remain unchanged.
 - Browser QA completed at desktop and 390×844 mobile viewport.
 
 ### Deferred
 
 - Career knowledge-base structure, real CV/evidence ingestion and live vacancy sources require a separate design discussion.
 - The live Railway service has not been changed; this work is on a feature branch for review.
+
+### Follow-up decision
+
+- Codex/chat is the primary Career Agent control plane; the dashboard is a protected read-only status view.
+- Added `scripts/career_agent.py` for status, daily runs, approval records, document exports and recording manually sent outreach.
+- Removed workflow mutation buttons from the Career dashboard and added chat-first operating documentation.
 
 ---
 

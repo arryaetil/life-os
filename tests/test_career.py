@@ -84,6 +84,8 @@ def test_career_page_renders_daily_opportunity(client):
     assert "Career command center" in response.text
     assert "Junior AI Solutions Engineer" in response.text
     assert "External actions" in response.text
+    assert "Managed through Codex" in response.text
+    assert "Run today’s scan" not in response.text
 
 
 def test_career_page_requires_auth_in_production(client):
@@ -113,3 +115,14 @@ def test_approval_is_explicit_and_does_not_mark_submitted(client):
         approved = response.json()["application"]
         assert approved["status"] == "approved_for_manual_submission"
         assert approved["submitted_at"] is None
+
+
+def test_codex_command_surface_runs_daily_scan(capsys):
+    from scripts.career_agent import main
+    with patch("scripts.career_agent.database.init_db"), patch(
+        "scripts.career_agent.database.run_career_daily",
+        return_value={"run_date": "2099-01-03", "status": "completed"},
+    ) as run:
+        assert main(["run", "--date", "2099-01-03", "--minimum-score", "70"]) == 0
+    run.assert_called_once_with("2099-01-03", 70)
+    assert '"status": "completed"' in capsys.readouterr().out
