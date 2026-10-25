@@ -2,7 +2,7 @@
 
 **LifeOS is a personal operating system delivered through Telegram and a web dashboard.**
 
-Input arrives via Telegram natural language. The dashboard is read-only visualisation. All data lives in a single PostgreSQL database. Claude Code sessions are replaceable implementation workers. The vault is the memory layer that survives session rotation.
+Input arrives primarily via Telegram natural language. Finance dashboard pages are read-only visualisation; the protected Career page also records explicit review and manual-action status. All data lives in a single PostgreSQL database. Claude Code sessions are replaceable implementation workers. The vault is the memory layer that survives session rotation.
 
 ---
 
@@ -13,12 +13,15 @@ Input arrives via Telegram natural language. The dashboard is read-only visualis
 | 1.0 | Finance Cashflow Tracker | DONE |
 | 1.1 | Net Worth Tracker | DONE |
 | 1.4 | Agent Control Layer (partial) | IN PROGRESS |
+| 5.0 | Career Agent | MVP COMPLETE |
 
 **Module 1.0** — Log every expense, income, transfer, investment in natural language. AI parses the message (GPT-4o-mini, Claude Haiku fallback, regex fallback). Stored in `transactions` table. Dashboard shows weekly KPIs, category breakdown, full history.
 
 **Module 1.1** — Snapshot net worth across assets at any point in time. Natural language input ("net worth cash 2k investments 8k"). Append-only `net_worth_snapshots` table. Dashboard shows trend chart, goal progress (€25K / €30K), asset allocation.
 
 **Module 1.4 (partial)** — Telegram supervision commands (`/status`, `/next`, `/git`, `/handoff`). `notify_me.py` for Claude→user push notifications. `create_handoff.py` for session continuity. `agent_state` DB table. Owner-only auth on all bot handlers.
+
+**Module 5.0 (MVP)** — A `/career` command center inside the existing dashboard. It runs an idempotent daily scan, ranks opportunities with a transparent fixed-weight score, prepares evidence-bound CV and motivation materials, exports DOCX/PDF, and requires explicit review before marking an application ready for manual submission. Outreach remains a copy-only draft; Life OS never sends messages or applications. Current vacancies and contacts are clearly marked demo data until real sources and the knowledge base are configured.
 
 ---
 
@@ -33,7 +36,7 @@ Telegram message
   → reply with status
 
 Web browser
-  → GET /networth or / etc. (FastAPI on Railway)
+  → GET /networth, /career or / etc. (FastAPI on Railway)
   → DB read → Jinja2 render → HTML response
 ```
 
@@ -76,5 +79,6 @@ Modules to build:
 - 2.0 Goals Tracker
 - 3.0 Health/Workout Tracker
 - 4.0 Unified LifeOS Dashboard
+- 5.1 Career knowledge base and verified vacancy sources
 
 See [[Current_Priorities]] and [[finance-lifeos]] for roadmap details.

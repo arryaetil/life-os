@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
+import secrets
 from telegram import Update
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Request, Response, HTTPException, status
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from app import config, database as sheets
@@ -22,6 +24,23 @@ ASSET_ALLOCATION_AMOUNTS = (
 )
 
 _ptb_app = None
+_career_security = HTTPBasic(auto_error=False)
+
+
+def require_career_access(credentials: HTTPBasicCredentials | None = Depends(_career_security)) -> None:
+    """Keep private career data closed by default outside local development."""
+    if config.LOCAL_POLLING:
+        return
+    if not config.CAREER_ACCESS_KEY:
+        raise HTTPException(status_code=503, detail="Career access is not configured")
+    valid_user = credentials is not None and secrets.compare_digest(credentials.username, "lifeos")
+    valid_key = credentials is not None and secrets.compare_digest(credentials.password, config.CAREER_ACCESS_KEY)
+    if not (valid_user and valid_key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Career access required",
+            headers={"WWW-Authenticate": "Basic"},
+        )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -160,6 +179,69 @@ async def financials_page(request: Request):
 @app.get("/networth")
 async def networth_page(request: Request):
     return await financials_page(request)
+
+
+@app.get("/career")
+async def career_page(request: Request, _: None = Depends(require_career_access)):
+    data = sheets.get_career_dashboard()
+    selected_job = next(
+        (job for job in data["jobs"] if data["run"] and job["id"] == data["run"]["selected_job_id"]),
+        None,
+    )
+    selected_contact = next(
+        (contact for contact in data["contacts"] if data["run"] and contact["id"] == data["run"]["contact_id"]),
+        None,
+    )
+    return templates.TemplateResponse(request, "career.html", {
+        **data,
+        "active_page": "career",
+        "page_title": "Career Agent",
+        "selected_job": selected_job,
+        "selected_contact": selected_contact,
+    })
+
+
+@app.post("/api/career/run")
+async def api_run_career_agent(_: None = Depends(require_career_access)):
+    return JSONResponse(sheets.run_career_daily())
+
+
+@app.post("/api/career/applications/{application_id}/approve")
+async def api_approve_career_application(application_id: int, _: None = Depends(require_career_access)):
+    try:
+        application = sheets.approve_career_application(application_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return JSONResponse({"ok": True, "application": application})
+
+
+@app.post("/api/career/contacts/{contact_id}/mark-sent")
+async def api_mark_career_contact_sent(contact_id: int, _: None = Depends(require_career_access)):
+    try:
+        sheets.mark_career_contact_sent(contact_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return JSONResponse({"ok": True, "boundary": "Life OS recorded your manual send; it sent no message."})
+
+
+@app.get("/api/career/applications/{application_id}/documents/{kind}.{file_format}")
+async def api_career_document(application_id: int, kind: str, file_format: str, _: None = Depends(require_career_access)):
+    from app.career import build_application_document
+    try:
+        application, job = sheets.get_career_application_bundle(application_id)
+        document = build_application_document(application, job, kind, file_format)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if file_format == "docx" else "application/pdf"
+    )
+    filename = f"{kind}-{application_id}.{file_format}"
+    return StreamingResponse(document, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @app.put("/api/transactions/{tx_id}")

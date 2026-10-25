@@ -1,6 +1,6 @@
 # Current Priorities
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-10-25_
 
 ---
 
@@ -16,6 +16,19 @@ Each module must be complete and tested before starting the next.
 ---
 
 ## Immediate Next Priority
+
+**Career Agent 5.1 — Knowledge base and live sources**
+
+The Career Agent MVP is integrated at `/career`. The next Career step is a focused design discussion before storing more personal evidence or enabling real vacancy discovery.
+
+- Define the canonical career fact/evidence model and privacy boundary
+- Confirm which CV, portfolio, GitHub and project sources may be ingested
+- Add one verified vacancy source at a time, starting with official company ATS feeds
+- Keep manual approval for applications and manual sending for all outreach
+
+The original finance roadmap remains queued after this user-prioritized vertical slice.
+
+### Finance roadmap continuation
 
 **Module 1.2 — Portfolio / Accounts Tracker**
 
@@ -33,7 +46,7 @@ Acceptance criteria:
 
 ## What NOT to Build Yet
 
-- RAG, vector databases, embeddings, semantic search — not until later modules
+- RAG, vector databases, embeddings, semantic search — defer until the Career knowledge-base design is explicitly agreed
 - Multi-user support — single-user only for now
 - OAuth/Basic Auth for dashboard — deferred
 - Mobile PWA — deferred
@@ -59,3 +72,4 @@ Acceptance criteria:
 - Build Module 1.2 (Portfolio/Accounts)
 - Complete Module 1.4 (finish `/resolve` command, proactive daily summary)
 - Maintain clean vault context after each session
+- Design the Career knowledge base and connect verified vacancy sources

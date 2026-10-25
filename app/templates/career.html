@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="career-shell">
+  <header class="career-hero">
+    <div>
+      <div class="career-kicker"><span class="status-dot"></span> Daily run complete · demo mode</div>
+      <h1>Career command center</h1>
+      <p>One high-confidence opportunity, evidence-bound application materials, and a human checkpoint before anything leaves Life OS.</p>
+    </div>
+    <button class="career-secondary" onclick="runCareerAgent(this)">Run today’s scan</button>
+  </header>
+
+  <section class="career-stat-strip" aria-label="Career agent summary">
+    <div><span>Jobs reviewed</span><strong>{{ run.result.jobs_scored if run else 0 }}</strong></div>
+    <div><span>Top match</span><strong class="career-accent">{{ selected_job.match_score|int if selected_job else '—' }}{% if selected_job %}%{% endif %}</strong></div>
+    <div><span>Application</span><strong>{{ application.status|replace('_', ' ')|title if application else 'Not prepared' }}</strong></div>
+    <div><span>External actions</span><strong class="career-safe">0</strong></div>
+  </section>
+
+  {% if selected_job %}
+  <section class="career-grid career-opportunity-grid">
+    <article class="career-panel career-opportunity">
+      <div class="career-panel-head">
+        <div><span class="career-eyebrow">Today’s strongest opportunity</span><span class="career-demo-tag">Demo vacancy</span></div>
+        <div class="career-score" aria-label="Match score {{ selected_job.match_score|int }} percent"><strong>{{ selected_job.match_score|int }}</strong><span>/100</span></div>
+      </div>
+      <h2>{{ selected_job.title }}</h2>
+      <p class="career-company">{{ selected_job.company }} · {{ selected_job.location }} · {{ selected_job.work_mode|title }}</p>
+      <p class="career-description">{{ selected_job.description }}</p>
+      <div class="career-split-list">
+        <div>
+          <h3>Why it fits</h3>
+          {% for strength in selected_job.strengths %}<p class="fit-line good"><span>✓</span>{{ strength }}</p>{% endfor %}
+        </div>
+        <div>
+          <h3>Watch-outs</h3>
+          {% for gap in selected_job.gaps %}<p class="fit-line gap"><span>!</span>{{ gap }}</p>{% else %}<p class="career-muted">No blocking gaps found.</p>{% endfor %}
+        </div>
+      </div>
+    </article>
+
+    <aside class="career-panel career-scorecard">
+      <span class="career-eyebrow">Transparent score</span>
+      {% for label, points in selected_job.score_breakdown.items() %}
+      <div class="score-row">
+        <div><span>{{ label|replace('_', ' ')|title }}</span><strong>{{ points }}</strong></div>
+        <div class="score-track"><span style="width: {{ points * 4 }}%"></span></div>
+      </div>
+      {% endfor %}
+      <p class="career-note">Fixed weights, no black-box ranking. The complete breakdown adds up to the displayed score.</p>
+    </aside>
+  </section>
+  {% endif %}
+
+  {% if application %}
+  <section class="career-section">
+    <div class="career-section-title"><div><span class="career-eyebrow">Application checkpoint</span><h2>Review before proceeding</h2></div><span class="career-status">{{ application.status|replace('_', ' ') }}</span></div>
+    <div class="career-grid career-review-grid">
+      <article class="career-panel">
+        <h3>Verified claims only</h3>
+        <p class="career-muted">Every statement below comes from a user-confirmed fact. No inferred achievements, dates, or credentials.</p>
+        <ul class="claim-list">
+          {% for claim in application.cv_claims %}<li><span>✓</span>{{ claim }}</li>{% endfor %}
+        </ul>
+      </article>
+      <article class="career-panel letter-panel">
+        <h3>Motivation draft</h3>
+        <pre>{{ application.motivation_letter }}</pre>
+      </article>
+    </div>
+    <div class="approval-bar">
+      <label><input type="checkbox" id="approval-confirm"> I reviewed the vacancy and every claim above.</label>
+      <div>
+        <span class="document-links"><a href="/api/career/applications/{{ application.id }}/documents/cv.docx">CV · DOCX</a><a href="/api/career/applications/{{ application.id }}/documents/cv.pdf">CV · PDF</a><a href="/api/career/applications/{{ application.id }}/documents/motivation.pdf">Letter · PDF</a></span>
+        <span id="approval-message">Approval unlocks manual submission only.</span>
+        <button class="career-primary" id="approval-button" onclick="approveApplication({{ application.id }})" {% if application.status != 'pending_review' %}disabled{% endif %}>{{ 'Approve materials' if application.status == 'pending_review' else 'Materials approved' }}</button>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="career-grid career-lower-grid">
+    {% if selected_contact %}
+    <article class="career-panel outreach-panel">
+      <div class="career-panel-head"><span class="career-eyebrow">Today’s network action</span><span class="career-demo-tag">Demo contact</span></div>
+      <h2>{{ selected_contact.name }}</h2>
+      <p class="career-company">{{ selected_contact.role }} · {{ selected_contact.company }}</p>
+      <p class="career-muted">{{ selected_contact.relevance }}</p>
+      <blockquote id="outreach-message">{{ selected_contact.message }}</blockquote>
+      <div class="career-actions">
+        <button class="career-secondary" onclick="copyOutreach(this)">Copy draft</button>
+        <button class="career-secondary" onclick="markContactSent({{ selected_contact.id }}, this)" {% if selected_contact.status == 'sent_manually' %}disabled{% endif %}>{{ 'Recorded as sent' if selected_contact.status == 'sent_manually' else 'I sent this manually' }}</button>
+      </div>
+      <p class="career-note">Life OS never sends LinkedIn messages or connection requests.</p>
+    </article>
+    {% endif %}
+
+    <article class="career-panel evidence-panel">
+      <div class="career-panel-head"><span class="career-eyebrow">Career evidence</span><span>{{ facts|length }} facts</span></div>
+      {% for fact in facts %}
+      <div class="evidence-row"><div><strong>{{ fact.label }}</strong><span>{{ fact.category }}</span></div><span class="verified">user confirmed</span></div>
+      {% endfor %}
+      <p class="career-note">Documents, links, and deeper evidence can be added when we design the knowledge base.</p>
+    </article>
+  </section>
+
+  <section class="career-section">
+    <div class="career-section-title"><div><span class="career-eyebrow">Pipeline</span><h2>Ranked opportunities</h2></div></div>
+    <div class="career-table-wrap">
+      <table class="career-table">
+        <thead><tr><th>Role</th><th>Location</th><th>Match</th><th>Status</th></tr></thead>
+        <tbody>{% for job in jobs %}<tr><td><strong>{{ job.title }}</strong><span>{{ job.company }}</span></td><td>{{ job.location }}</td><td><strong>{{ job.match_score|int if job.match_score is not none else '—' }}{% if job.match_score is not none %}%{% endif %}</strong></td><td><span class="career-status">{{ job.status }}</span></td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+async function runCareerAgent(button) {
+  button.disabled = true; button.textContent = 'Scanning…';
+  await fetch('/api/career/run', {method: 'POST'});
+  window.location.reload();
+}
+async function approveApplication(id) {
+  const checkbox = document.getElementById('approval-confirm');
+  const message = document.getElementById('approval-message');
+  if (!checkbox.checked) { message.textContent = 'Confirm your review first.'; return; }
+  const response = await fetch(`/api/career/applications/${id}/approve`, {method: 'POST'});
+  const data = await response.json();
+  message.textContent = response.ok ? 'Approved. No application was submitted.' : (data.detail || 'Approval failed.');
+  if (response.ok) document.getElementById('approval-button').disabled = true;
+}
+async function copyOutreach(button) {
+  await navigator.clipboard.writeText(document.getElementById('outreach-message').textContent.trim());
+  button.textContent = 'Copied';
+}
+async function markContactSent(id, button) {
+  const response = await fetch(`/api/career/contacts/${id}/mark-sent`, {method: 'POST'});
+  if (response.ok) { button.textContent = 'Recorded as sent'; button.disabled = true; }
+}
+</script>
+{% endblock %}

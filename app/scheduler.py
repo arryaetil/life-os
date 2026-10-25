@@ -19,6 +19,14 @@ def job_daily_journal_reminder() -> None:
     send_telegram_message(f"Journal — {today}. Log today before you forget.")
 
 
+def job_daily_career_agent() -> None:
+    """Prepare at most one opportunity; never submit or message externally."""
+    try:
+        database.run_career_daily()
+    except Exception as exc:
+        _log.warning("career agent job failed: %s", exc)
+
+
 def job_friday_networth_reminder() -> None:
     try:
         snap = database.get_latest_net_worth_snapshot()
@@ -89,6 +97,11 @@ def job_monthly_review() -> None:
 
 def create_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone=_TZ)
+    scheduler.add_job(
+        job_daily_career_agent,
+        CronTrigger(hour=7, minute=30, timezone=_TZ),
+        id="daily_career_agent",
+    )
     scheduler.add_job(
         job_daily_journal_reminder,
         CronTrigger(hour=8, minute=0, timezone=_TZ),

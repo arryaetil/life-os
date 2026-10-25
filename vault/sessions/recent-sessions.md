@@ -4,6 +4,30 @@ _Update this file after every significant session._
 
 ---
 
+## 2026-10-25 — Career Agent integrated into Life OS
+
+### Completed
+
+- Added the `/career` command center in the existing FastAPI/Jinja dashboard.
+- Added isolated Career tables without changing the stable `transactions` schema.
+- Added transparent job scoring, one-opportunity daily selection, verified-claim enforcement, application review, manual-only outreach tracking and an audit trail.
+- Added in-memory DOCX/PDF exports and a 07:30 daily scheduler job.
+- Seeded a clearly labelled demo dataset using only facts confirmed in the Career brief.
+- Improved global secondary-text contrast and removed decorative glow/gradient text from the shared visual system.
+
+### Verification
+
+- Career tests: 10 passing.
+- Full suite: 319 passing; 4 unrelated pre-existing failures remain unchanged.
+- Browser QA completed at desktop and 390×844 mobile viewport.
+
+### Deferred
+
+- Career knowledge-base structure, real CV/evidence ingestion and live vacancy sources require a separate design discussion.
+- The live Railway service has not been changed; this work is on a feature branch for review.
+
+---
+
 ## 2026-10-23 — Financial Dashboard Redesign + Forecast
 
 ### Completed

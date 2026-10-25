@@ -1,49 +1,61 @@
-# Handoff — 2026-10-23
+# Handoff — 2026-10-25
 
 ## What Was Done
-- Added a three-month cashflow forecast based on €2,207 stable monthly income and average net expenses from the current and previous month.
-- Fully redesigned the Financials dashboard while preserving its existing KPIs and data flows.
-- Added responsive desktop/mobile presentation for the KPI strip, forecast table, net worth, allocation, chart and activity ledger.
-- Added projected net worth to each forecast month and a prominent end-of-forecast net-worth value.
-- Set asset allocation to percentage-only shared-holdings ratios: Portfolio 57.8%, Cash 27.5%, Checking 7.6%, Gold 7.1%.
-- Added forecast calculation and dashboard rendering tests.
+- Integrated a Career Agent MVP into Life OS at `/career`.
+- Added isolated SQLAlchemy Core tables for career facts, jobs, applications, contacts, daily runs and audit events.
+- Added deterministic transparent scoring, evidence-bound materials, one-opportunity selection and idempotent daily execution.
+- Added explicit human approval, manual-only outreach tracking and safe field-planning boundaries for CAPTCHA/ambiguous questions.
+- Added in-memory DOCX/PDF document generation and a 07:30 scheduler job.
+- Added production-only HTTP Basic protection for all Career pages and APIs.
+- Added a responsive Life OS interface and Career test coverage.
 
 ## Files Changed
-- `app/budget.py` — three-month forecast calculation.
-- `app/dashboard.py` — forecast configuration and template context.
-- `app/templates/networth.html` — redesigned financial dashboard.
-- `app/templates/base.html` — page-specific body class.
-- `app/static/style.css` — new financial dashboard visual system and responsive rules.
-- `tests/test_budget.py` — forecast calculation and year-boundary tests.
-- `tests/test_dashboard.py` — forecast rendering test.
-- `vault/sessions/recent-sessions.md` — session record.
+- `app/career.py` — scoring, claim verification, form safety planning and document generation.
+- `app/config.py` — `CAREER_ACCESS_KEY` configuration.
+- `app/database.py` — isolated Career persistence and workflows.
+- `app/dashboard.py` — Career page and API endpoints.
+- `app/templates/career.html` — Career command center.
+- `app/templates/base.html` — Career navigation and dynamic title.
+- `app/static/style.css` — Career UI plus contrast/style cleanup.
+- `app/scheduler.py` — daily Career run.
+- `tests/test_career.py`, `tests/test_scheduler.py` — feature and scheduler coverage.
+- `requirements.txt` — DOCX/PDF libraries.
+- Vault/status files — current state and next steps.
 
 ## Current State
-The Financials dashboard is implemented and browser-checked at 1440px and 390px with no page-level horizontal overflow. The forecast shows the next three calendar months, projected net worth per month, and the ending net worth. Asset allocation is percentage-only and intentionally independent from the personal net-worth total because the source holdings are shared.
+The Career Agent MVP is complete on branch `feat/career-agent-lifeos`. It operates entirely on clearly labelled demo opportunities and user-confirmed facts, creates no external side effects, and has not been deployed to the live Railway service.
 
 ## Bugs / Blockers
-- The full suite has 309 passing tests and 4 unrelated pre-existing failures: one stale date-dependent category test and three Telegram message-routing expectations.
+- Four unrelated pre-existing test failures remain: one stale category/date expectation and three Telegram message-routing expectations.
+- The local Python 3.13 environment cannot start python-telegram-bot 20.7 normally; UI QA used Uvicorn with lifespan disabled. Railway's current deployment remains healthy.
+- Live vacancy sources and the private knowledge-base model are intentionally deferred.
+- `CAREER_ACCESS_KEY` must be configured in Railway before merge/deployment; username is `lifeos`.
 
 ## Next Exact Task
-1. Confirm the Railway deployment completed after the commit reaches `master`.
-2. Verify `/financials` shows the production net-worth forecast and percentage-only allocation.
-3. Update the fixed asset-allocation source amounts when the user's shared holdings change.
+1. Review and merge the Career Agent pull request when ready to deploy.
+2. Confirm the Railway deployment and smoke-test `/career` on production.
+3. Design the Career knowledge-base privacy/evidence model with the user.
+4. Connect one official vacancy feed and replace demo data only after that design is approved.
 
 ## Commands to Run
 ```bash
-TELEGRAM_BOT_TOKEN=test DATABASE_URL=sqlite:////tmp/lifeos-test.db LOCAL_POLLING=true pytest tests/test_budget.py tests/test_dashboard.py -q
-uvicorn app.dashboard:app --reload
+TELEGRAM_BOT_TOKEN=test DATABASE_URL=sqlite:////tmp/lifeos-test.db LOCAL_POLLING=true pytest -q
+TELEGRAM_BOT_TOKEN=test DATABASE_URL=sqlite:////tmp/lifeos-preview.db LOCAL_POLLING=true python3 -c 'from app.database import init_db; init_db()'
+TELEGRAM_BOT_TOKEN=test DATABASE_URL=sqlite:////tmp/lifeos-preview.db LOCAL_POLLING=true uvicorn app.dashboard:app --lifespan off
 ```
 
 ## Environment Variables Needed
 - TELEGRAM_BOT_TOKEN
-- OPENAI_API_KEY
 - DATABASE_URL
+- OPENAI_API_KEY
 - WEBHOOK_BASE_URL
 - TELEGRAM_WEBHOOK_SECRET
+- TELEGRAM_OWNER_CHAT_ID
+- CAREER_ACCESS_KEY (required for `/career` in production; username: `lifeos`)
 - WEEKLY_BUDGET (default: 90)
 - LOCAL_POLLING (true for local dev)
 
 ## Do-Not-Touch Warnings
 - Do not modify the `transactions` table schema.
-- Preserve reimbursement handling as expense offsets rather than income.
+- Do not auto-submit applications or auto-send LinkedIn outreach.
+- Do not ingest additional private career data until the knowledge-base privacy model is agreed.
