@@ -8,6 +8,7 @@
 - Added in-memory DOCX/PDF document generation and a 07:30 scheduler job.
 - Added production-only HTTP Basic protection for all Career pages and APIs.
 - Made Codex the primary Career control plane through `scripts/career_agent.py`; `/career` is now read-only.
+- Added four document-verified flagship projects and a GitHub showcase goal to the Career knowledge base.
 - Added a responsive Life OS interface and Career test coverage.
 
 ## Files Changed

@@ -126,3 +126,23 @@ def test_codex_command_surface_runs_daily_scan(capsys):
         assert main(["run", "--date", "2099-01-03", "--minimum-score", "70"]) == 0
     run.assert_called_once_with("2099-01-03", 70)
     assert '"status": "completed"' in capsys.readouterr().out
+
+
+def test_seed_includes_verified_flagship_projects(client):
+    from app import database
+    facts = database.get_career_dashboard()["facts"]
+    projects = {fact["label"]: fact for fact in facts if fact["category"] == "project"}
+    assert {"Life OS", "BackyardAI", "KYC4etil", "Network Economics Paper"} <= projects.keys()
+    assert all(projects[name]["verification_status"] == "document_verified" for name in (
+        "Life OS", "BackyardAI", "KYC4etil", "Network Economics Paper",
+    ))
+
+
+def test_career_fact_can_be_updated_without_duplication(client):
+    from app import database
+    first = database.set_career_fact("project", "Portfolio proof", "First", "user_confirmed")
+    second = database.set_career_fact("project", "Portfolio proof", "Updated", "document_verified", "GitHub")
+    assert first["id"] == second["id"]
+    matches = [fact for fact in database.get_career_dashboard()["facts"] if fact["label"] == "Portfolio proof"]
+    assert len(matches) == 1
+    assert matches[0]["value"] == "Updated"

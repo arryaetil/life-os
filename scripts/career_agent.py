@@ -22,6 +22,13 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status", help="Show the current Career dashboard state")
 
+    fact = commands.add_parser("fact-set", help="Add or update a verified Career fact")
+    fact.add_argument("category")
+    fact.add_argument("label")
+    fact.add_argument("value")
+    fact.add_argument("--status", choices=("user_confirmed", "document_verified", "unverified"), default="user_confirmed")
+    fact.add_argument("--source-label")
+
     run = commands.add_parser("run", help="Run the idempotent daily Career scan")
     run.add_argument("--date")
     run.add_argument("--minimum-score", type=int, default=65)
@@ -46,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "status":
             _print(database.get_career_dashboard())
+        elif args.command == "fact-set":
+            _print(database.set_career_fact(args.category, args.label, args.value, args.status, args.source_label))
         elif args.command == "run":
             _print(database.run_career_daily(args.date, args.minimum_score))
         elif args.command == "approve":

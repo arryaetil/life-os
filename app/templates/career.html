@@ -93,7 +93,7 @@
     <article class="career-panel evidence-panel">
       <div class="career-panel-head"><span class="career-eyebrow">Career evidence</span><span>{{ facts|length }} facts</span></div>
       {% for fact in facts %}
-      <div class="evidence-row"><div><strong>{{ fact.label }}</strong><span>{{ fact.category }}</span></div><span class="verified">user confirmed</span></div>
+      <div class="evidence-row"><div><strong>{{ fact.label }}</strong><span>{{ fact.category }}</span></div><span class="verified">{{ fact.verification_status|replace('_', ' ') }}</span></div>
       {% endfor %}
       <p class="career-note">Documents, links, and deeper evidence can be added when we design the knowledge base.</p>
     </article>

@@ -18,7 +18,7 @@ _Update this file after every significant session._
 ### Verification
 
 - Career tests: 10 passing.
-- Full suite: 320 passing; 4 unrelated pre-existing failures remain unchanged.
+- Full suite: 322 passing; 4 unrelated pre-existing failures remain unchanged.
 - Browser QA completed at desktop and 390×844 mobile viewport.
 
 ### Deferred
@@ -31,6 +31,7 @@ _Update this file after every significant session._
 - Codex/chat is the primary Career Agent control plane; the dashboard is a protected read-only status view.
 - Added `scripts/career_agent.py` for status, daily runs, approval records, document exports and recording manually sent outreach.
 - Removed workflow mutation buttons from the Career dashboard and added chat-first operating documentation.
+- Added Life OS, BackyardAI, KYC4etil and the Network Economics Paper as document-verified flagship projects, with public GitHub sources and a user-confirmed showcase goal.
 
 ---
 

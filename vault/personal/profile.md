@@ -77,6 +77,19 @@ Current skills in focus: SQL, Python, AI engineering, automation, communication,
 Less: traditional software engineering.
 More: systems engineering + AI leverage.
 
+## Flagship GitHub Portfolio
+
+1. **Life OS** — AI product development: natural-language interaction, FastAPI, PostgreSQL, automation, dashboarding and Railway deployment.
+   https://github.com/arryaetil/life-os
+2. **BackyardAI** — visual AI with a commercial application for installers and contractors.
+   https://github.com/arryaetil/poolpipeline
+3. **KYC4etil** — human-in-the-loop public-source research, evidence validation and reviewer decision support.
+   https://github.com/arryaetil/KYC4etil
+4. **Network Economics Paper** — analytical ability through network analysis, WIOD data and econometric modelling.
+   https://github.com/arryaetil/07-network-paper
+
+**Portfolio intent:** present these four projects as the primary public proof of AI product development, commercial application, research engineering and analytical capability.
+
 ---
 
 ## Fitness

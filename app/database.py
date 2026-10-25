@@ -440,16 +440,27 @@ def seed_career_demo() -> None:
     """Seed an honest demo slice. User-confirmed facts come from the supplied brief."""
     now = datetime.now(timezone.utc).isoformat()
     with _engine.begin() as conn:
-        if not conn.execute(select(career_facts.c.id).limit(1)).fetchone():
-            conn.execute(insert(career_facts), [
-                {"category": "education", "label": "Current education", "value": "Currently completing Economics & Business Economics at Maastricht University.", "verification_status": "user_confirmed", "source_label": "Career Agent brief"},
-                {"category": "experience", "label": "Solution engineering", "value": "Has junior solution engineering experience at ETIL.", "verification_status": "user_confirmed", "source_label": "Career Agent brief"},
-                *[
-                    {"category": "skill", "label": skill, "value": skill, "verification_status": "user_confirmed", "source_label": "Career Agent brief"}
-                    for skill in ("Python", "FastAPI", "SQL", "Power BI", "Git", "Docker")
-                ],
-                {"category": "project", "label": "AI applications", "value": "Has worked on AI agents, research tools, business applications, integrations, and automation.", "verification_status": "user_confirmed", "source_label": "Career Agent brief"},
-            ])
+        facts = [
+            {"category": "education", "label": "Current education", "value": "Currently completing Economics & Business Economics at Maastricht University.", "verification_status": "user_confirmed", "source_label": "Career Agent brief"},
+            {"category": "experience", "label": "Solution engineering", "value": "Has junior solution engineering experience at ETIL.", "verification_status": "user_confirmed", "source_label": "Career Agent brief"},
+            *[
+                {"category": "skill", "label": skill, "value": skill, "verification_status": "user_confirmed", "source_label": "Career Agent brief"}
+                for skill in ("Python", "FastAPI", "SQL", "Power BI", "Git", "Docker")
+            ],
+            {"category": "project", "label": "AI applications", "value": "Has worked on AI agents, research tools, business applications, integrations, and automation.", "verification_status": "user_confirmed", "source_label": "Career Agent brief"},
+            {"category": "project", "label": "Life OS", "value": "Built an AI product that combines natural-language interaction, FastAPI, PostgreSQL, automated workflows, a web dashboard, and Railway deployment.", "verification_status": "document_verified", "source_label": "https://github.com/arryaetil/life-os"},
+            {"category": "project", "label": "BackyardAI", "value": "Built a commercial visual-AI concept for installers and contractors that combines address-based imagery, 3D rendering, AI analysis, and image editing to visualise products in a customer's garden.", "verification_status": "document_verified", "source_label": "https://github.com/arryaetil/poolpipeline"},
+            {"category": "project", "label": "KYC4etil", "value": "Built a human-in-the-loop public-source research workbench that finds, validates, ranks, and presents workforce evidence for reviewer decisions.", "verification_status": "document_verified", "source_label": "https://github.com/arryaetil/KYC4etil"},
+            {"category": "project", "label": "Network Economics Paper", "value": "Co-authored an empirical network-economics paper using WIOD data, network centrality, GVC measures, and econometric models to analyse the relationship between production-network position and wages.", "verification_status": "document_verified", "source_label": "https://github.com/arryaetil/07-network-paper"},
+            {"category": "career_goal", "label": "GitHub portfolio", "value": "Showcase Life OS, BackyardAI, KYC4etil, and the Network Economics Paper as four flagship GitHub projects.", "verification_status": "user_confirmed", "source_label": "User instruction, 2026-10-25"},
+        ]
+        for fact in facts:
+            exists = conn.execute(select(career_facts.c.id).where(
+                career_facts.c.category == fact["category"],
+                career_facts.c.label == fact["label"],
+            )).fetchone()
+            if not exists:
+                conn.execute(insert(career_facts).values(**fact))
         if not conn.execute(select(career_jobs.c.id).limit(1)).fetchone():
             jobs = [
                 ("demo-ai-1", "Junior AI Solutions Engineer", "Northstar Systems", "Eindhoven, Netherlands", "hybrid", ["Python", "FastAPI", "SQL", "Git"], ["Docker", "Power BI"], "0–2 years", "Build AI business applications, integrations and agent workflows in an early-career team with mentorship and structured learning."),
@@ -531,6 +542,28 @@ def get_career_dashboard() -> dict:
             application = _career_row(row) if row else None
         audits = [_career_row(row) for row in conn.execute(select(career_audit).order_by(desc(career_audit.c.id)).limit(8))]
         return {"run": run, "jobs": jobs, "facts": facts, "contacts": contacts, "application": application, "audits": audits}
+
+
+def set_career_fact(category: str, label: str, value: str, verification_status: str, source_label: str | None = None) -> dict:
+    allowed_statuses = {"user_confirmed", "document_verified", "unverified"}
+    if verification_status not in allowed_statuses:
+        raise ValueError("Invalid verification status")
+    if not all(item.strip() for item in (category, label, value)):
+        raise ValueError("Category, label, and value are required")
+    with _engine.begin() as conn:
+        row = conn.execute(select(career_facts).where(
+            career_facts.c.category == category.strip(),
+            career_facts.c.label == label.strip(),
+        )).fetchone()
+        values = {
+            "category": category.strip(), "label": label.strip(), "value": value.strip(),
+            "verification_status": verification_status, "source_label": source_label,
+        }
+        if row:
+            conn.execute(update(career_facts).where(career_facts.c.id == row.id).values(**values))
+            return {**values, "id": row.id}
+        result = conn.execute(insert(career_facts).values(**values))
+        return {**values, "id": result.inserted_primary_key[0]}
 
 
 def get_career_application_bundle(application_id: int) -> tuple[dict, dict]:
