@@ -236,7 +236,8 @@ def test_knowledge_base_uses_linkedin_as_leading_source(client):
     facts = {(fact["category"], fact["label"]): fact for fact in database.get_career_dashboard()["facts"]}
     assert facts[("skill", "Microsoft Foundry")]["verification_status"] == "user_confirmed"
     assert facts[("skill", "Docker")]["verification_status"] == "unverified"
-    assert facts[("experience", "Etil — Solution Engineer")]["source_label"].startswith("LinkedIn")
+    assert "November 2025 – August 2026" in facts[("experience", "Etil — Solution Engineer")]["value"]
+    assert "Information Management" in facts[("conflict", "Degree wording")]["value"]
     assert "not yet obtained" in facts[("education", "Bachelor (in progress)")]["value"]
     assert facts[("project", "KotStart web application")]["verification_status"] == "unverified"
 
