@@ -26,6 +26,10 @@ python3 scripts/career_agent.py contact-sent 1
 
 Against Railway, run the same command with the production environment loaded. `CAREER_ACCESS_KEY` is unrelated to these commands: it only protects the browser page with HTTP Basic authentication (`lifeos` as username).
 
+## Agent web research
+
+Claude Code and Codex can research vacancies on the open web and send them to the live app with `scripts/career_remote.py` (needs `LIFEOS_CAREER_KEY`). The playbook is `docs/career-scout.md`; Claude Code loads it through the `career-scout` skill, Codex through `AGENTS.md`. Endpoints: `GET /api/career/status`, `POST /api/career/discover`, `POST /api/career/jobs`, `POST /api/career/jobs/{id}/prepare`, all behind the same Basic authentication as `/career`.
+
 ## Vacancy source
 
 Real vacancies come from the Adzuna job search API (`app/career_sources.py`) once `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` are set. The daily run fetches first, then scores; `discover` fetches without selecting. Searches cover AI engineering, AI consulting, solutions engineering, pre-sales, technical sales, AML/KYC, SaaS business development, the Big Four (KPMG, Deloitte, PwC, EY) and Aachen. Big Four employers get a preferred-employer bonus. Location only counts for part-time roles alongside studies; internships and graduate roles are location-flexible. Without credentials the demo vacancies stay in place; once real vacancies arrive, demo vacancies are hidden.

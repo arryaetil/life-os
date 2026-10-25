@@ -184,10 +184,8 @@ async def networth_page(request: Request):
 @app.get("/career")
 async def career_page(request: Request, _: None = Depends(require_career_access)):
     data = sheets.get_career_dashboard()
-    selected_job = next(
-        (job for job in data["jobs"] if data["run"] and job["id"] == data["run"]["selected_job_id"]),
-        None,
-    )
+    focus_job_id = data["application"]["job_id"] if data["application"] else (data["run"] or {}).get("selected_job_id")
+    selected_job = next((job for job in data["jobs"] if job["id"] == focus_job_id), None)
     selected_contact = next(
         (contact for contact in data["contacts"] if data["run"] and contact["id"] == data["run"]["contact_id"]),
         None,
@@ -204,6 +202,40 @@ async def career_page(request: Request, _: None = Depends(require_career_access)
 @app.post("/api/career/run")
 async def api_run_career_agent(_: None = Depends(require_career_access)):
     return JSONResponse(sheets.run_career_daily())
+
+
+@app.get("/api/career/status")
+async def api_career_status(_: None = Depends(require_career_access)):
+    data = sheets.get_career_dashboard()
+    jobs = [
+        {key: job.get(key) for key in ("id", "title", "company", "location", "match_score", "status", "source", "application_url", "strengths", "gaps")}
+        for job in data["jobs"][:25]
+    ]
+    return JSONResponse({"run": data["run"], "jobs": jobs, "application": data["application"], "facts": len(data["facts"])})
+
+
+@app.post("/api/career/discover")
+async def api_discover_career_jobs(_: None = Depends(require_career_access)):
+    return JSONResponse(sheets.discover_career_jobs())
+
+
+@app.post("/api/career/jobs")
+async def api_add_career_jobs(request: Request, _: None = Depends(require_career_access)):
+    payload = await request.json()
+    jobs = payload.get("jobs") if isinstance(payload, dict) else None
+    if not isinstance(jobs, list) or not jobs or len(jobs) > 50 or not all(isinstance(job, dict) for job in jobs):
+        raise HTTPException(status_code=422, detail="Send {'jobs': [...]} with 1 to 50 job objects")
+    source = str(payload.get("agent") or "agent")[:30]
+    return JSONResponse(sheets.add_agent_career_jobs(jobs, source=source))
+
+
+@app.post("/api/career/jobs/{job_id}/prepare")
+async def api_prepare_career_application(job_id: int, _: None = Depends(require_career_access)):
+    try:
+        application = sheets.prepare_career_application(job_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return JSONResponse({"ok": True, "application": application, "boundary": "Prepared for review only; nothing was submitted."})
 
 
 @app.post("/api/career/applications/{application_id}/approve")

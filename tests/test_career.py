@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -249,3 +250,74 @@ def test_knowledge_base_is_applied_once_per_version(client):
     python = [f for f in database.get_career_dashboard()["facts"] if f["label"] == "Python"][0]
     assert python["verification_status"] == "unverified"
     database.set_career_fact("skill", "Python", "Python", "user_confirmed", "LinkedIn profile, 2026-10-25")
+
+
+AGENT_JOB = {
+    "title": "Agent Test AI Consultant", "company": "KPMG Nederland", "location": "Amstelveen, Netherlands",
+    "application_url": "https://www.werkenbijkpmg.nl/vacatures/agent-test", "work_mode": "hybrid",
+    "description": "Graduate AI consultant role working with Python and Azure.", "required_skills": ["Python", "Microsoft Azure"],
+    "source": "werkenbijkpmg.nl",
+}
+
+
+def _cleanup_agent_jobs():
+    from app import database
+    with database._engine.begin() as conn:
+        ids = [row.id for row in conn.execute(database.select(database.career_jobs.c.id).where(database.career_jobs.c.title.like("Agent Test%")))]
+        conn.execute(database.career_applications.delete().where(database.career_applications.c.job_id.in_(ids)))
+        conn.execute(database.career_jobs.delete().where(database.career_jobs.c.id.in_(ids)))
+        conn.execute(database.update(database.career_jobs).where(database.career_jobs.c.status == "demo_hidden").values(status="discovered"))
+
+
+def test_agent_jobs_are_validated_stored_and_scored(client):
+    from app import database
+    try:
+        result = database.add_agent_career_jobs([AGENT_JOB, {"title": "No url", "company": "X", "description": "y"}], source="claude")
+        assert result["added"] == 1
+        assert result["rejected"][0]["index"] == 1
+        job = next(job for job in database.get_career_dashboard()["jobs"] if job["title"] == AGENT_JOB["title"])
+        assert job["source"] == "claude:werkenbijkpmg.nl"
+        assert job["match_score"] is not None
+        assert "Preferred employer: KPMG" in job["strengths"]
+    finally:
+        _cleanup_agent_jobs()
+
+
+def test_jobs_endpoint_rejects_bad_payload(client):
+    assert client.post("/api/career/jobs", json={"jobs": []}).status_code == 422
+    assert client.post("/api/career/jobs", json=["not", "an", "object"]).status_code == 422
+
+
+def test_prepare_endpoint_creates_review_materials_once(client):
+    try:
+        client.post("/api/career/jobs", json={"jobs": [AGENT_JOB], "agent": "codex"})
+        job_id = next(job["id"] for job in client.get("/api/career/status").json()["jobs"] if job["title"] == AGENT_JOB["title"])
+        first = client.post(f"/api/career/jobs/{job_id}/prepare").json()
+        second = client.post(f"/api/career/jobs/{job_id}/prepare").json()
+        assert first["application"]["id"] == second["application"]["id"]
+        assert first["application"]["submitted_at"] is None
+        assert "nothing was submitted" in first["boundary"]
+    finally:
+        _cleanup_agent_jobs()
+
+
+def test_remote_cli_sends_jobs_with_basic_auth(tmp_path, capsys):
+    import httpx
+    from scripts.career_remote import main
+
+    seen = {}
+
+    def handler(request):
+        seen["auth"] = request.headers.get("authorization", "")
+        seen["path"] = request.url.path
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"added": 1, "skipped": 0, "rejected": [], "scored": 1})
+
+    jobs_file = tmp_path / "jobs.json"
+    jobs_file.write_text(json.dumps([AGENT_JOB]), encoding="utf-8")
+    client = httpx.Client(base_url="https://example.test", auth=("lifeos", "secret"), transport=httpx.MockTransport(handler))
+    assert main(["add-jobs", str(jobs_file), "--agent", "codex"], client=client) == 0
+    assert seen["path"] == "/api/career/jobs"
+    assert seen["auth"].startswith("Basic ")
+    assert seen["body"]["agent"] == "codex"
+    assert "secret" not in capsys.readouterr().out

@@ -495,7 +495,7 @@ def apply_career_knowledge_base() -> bool:
     return True
 
 
-def store_career_jobs(jobs: list[dict]) -> dict:
+def store_career_jobs(jobs: list[dict], source_label: str = "adzuna") -> dict:
     """Insert new vacancies, skipping known source ids and title+company duplicates across sources."""
     added = skipped = 0
     with _engine.begin() as conn:
@@ -520,7 +520,7 @@ def store_career_jobs(jobs: list[dict]) -> dict:
         if added or conn.execute(select(career_jobs.c.id).where(career_jobs.c.is_demo == False).limit(1)).fetchone():  # noqa: E712
             # Real vacancies replace the demo slice in selection and on the dashboard.
             conn.execute(update(career_jobs).where(career_jobs.c.is_demo == True, career_jobs.c.status == "discovered").values(status="demo_hidden"))  # noqa: E712
-        conn.execute(insert(career_audit).values(timestamp=datetime.now(timezone.utc).isoformat(), action="jobs_discovered", entity_type="job_source", entity_id="adzuna", detail_json=json.dumps({"added": added, "skipped": skipped})))
+        conn.execute(insert(career_audit).values(timestamp=datetime.now(timezone.utc).isoformat(), action="jobs_discovered", entity_type="job_source", entity_id=source_label, detail_json=json.dumps({"added": added, "skipped": skipped})))
     return {"added": added, "skipped": skipped}
 
 
@@ -532,12 +532,95 @@ def discover_career_jobs() -> dict:
         return {"configured": False, "added": 0, "skipped": 0, "errors": []}
     fetched = fetch_adzuna_jobs(config.ADZUNA_APP_ID, config.ADZUNA_APP_KEY)
     stored = store_career_jobs(fetched["jobs"])
-    return {"configured": True, "fetched": len(fetched["jobs"]), **stored, "errors": fetched["errors"]}
+    return {"configured": True, "fetched": len(fetched["jobs"]), **stored, "errors": fetched["errors"], "scored": score_career_jobs()}
+
+
+def _career_profile(facts: list[dict]) -> dict:
+    from app.career import CAREER_SEARCH_PROFILE
+    return {**CAREER_SEARCH_PROFILE, "skills": [fact["value"] for fact in facts if fact["category"] == "skill" and fact["verification_status"] in {"user_confirmed", "document_verified"}]}
+
+
+def _score_discovered(conn, profile: dict) -> list[dict]:
+    from app.career import score_job
+
+    jobs = [_career_row(row) for row in conn.execute(select(career_jobs).where(career_jobs.c.status == "discovered"))]
+    for job in jobs:
+        scored = score_job(job, profile)
+        conn.execute(update(career_jobs).where(career_jobs.c.id == job["id"]).values(
+            match_score=scored["score"], score_breakdown_json=json.dumps(scored["breakdown"]),
+            strengths_json=json.dumps(scored["strengths"]), gaps_json=json.dumps(scored["gaps"]),
+        ))
+        job.update({"match_score": scored["score"], "score_breakdown": scored["breakdown"], "strengths": scored["strengths"], "gaps": scored["gaps"]})
+    return jobs
+
+
+def _insert_application(conn, job: dict, facts: list[dict], profile: dict) -> int:
+    from app.career import verify_claims
+
+    claims = [fact["value"] for fact in facts if fact["category"] in {"education", "experience", "skill", "project"} and fact["verification_status"] in {"user_confirmed", "document_verified"}]
+    supported = [fact["value"] for fact in facts if fact["verification_status"] in {"user_confirmed", "document_verified"}]
+    unsupported = verify_claims(claims, supported)
+    result = conn.execute(insert(career_applications).values(
+        job_id=job["id"], status="blocked_by_claims" if unsupported else "pending_review",
+        summary=f"Evidence-bound materials for {job['title']} at {job['company']}.",
+        cv_claims_json=json.dumps(claims), unsupported_claims_json=json.dumps(unsupported),
+        motivation_letter=(f"Dear hiring team at {job['company']},\n\nI am interested in the {job['title']} position because it aligns with my focus on AI engineering, solution engineering, and client-facing technology work. My user-confirmed profile includes experience with {', '.join(profile['skills'][:4])}. I would welcome the opportunity to learn more about the team and discuss where my current experience can contribute.\n\nKind regards"),
+    ))
+    conn.execute(update(career_jobs).where(career_jobs.c.id == job["id"]).values(status="selected"))
+    return result.inserted_primary_key[0]
+
+
+def score_career_jobs() -> int:
+    """Score every discovered vacancy now, without making the daily selection."""
+    with _engine.begin() as conn:
+        facts = [_career_row(row) for row in conn.execute(select(career_facts))]
+        return len(_score_discovered(conn, _career_profile(facts)))
+
+
+def add_agent_career_jobs(jobs: list[dict], source: str = "agent") -> dict:
+    """Store vacancies found by Claude or Codex. Text is kept as data; nothing in it is executed or followed."""
+    limits = {"title": 200, "company": 200, "location": 200, "description": 8000, "salary": 100,
+              "required_experience": 200, "contract_type": 100, "work_mode": 20}
+    cleaned, rejected = [], []
+    for index, job in enumerate(jobs):
+        url = str(job.get("application_url", "")).strip()
+        missing = [field for field in ("title", "company", "application_url", "description") if not str(job.get(field, "")).strip()]
+        if missing or not url.startswith(("https://", "http://")):
+            rejected.append({"index": index, "reason": f"missing or invalid: {', '.join(missing) or 'application_url'}"})
+            continue
+        record = {field: str(job.get(field) or "").strip()[:limit] or None for field, limit in limits.items()}
+        cleaned.append({
+            **record,
+            "location": record["location"] or "Unknown",
+            "work_mode": (record["work_mode"] or "unknown").lower(),
+            "external_id": str(job.get("external_id") or url)[:500],
+            "source": f"{source}:{str(job.get('source') or 'web')[:60]}",
+            "application_url": url[:1000],
+            "posting_date": str(job.get("posting_date") or "")[:10] or None,
+            "discovered_at": datetime.now(timezone.utc).isoformat(),
+            "required_skills": [str(item)[:60] for item in (job.get("required_skills") or [])][:30],
+            "preferred_skills": [str(item)[:60] for item in (job.get("preferred_skills") or [])][:30],
+        })
+    stored = store_career_jobs(cleaned, source_label=source) if cleaned else {"added": 0, "skipped": 0}
+    return {**stored, "rejected": rejected, "scored": score_career_jobs()}
+
+
+def prepare_career_application(job_id: int) -> dict:
+    """Prepare review materials for a job the user or agent picked. Never submits anything."""
+    with _engine.begin() as conn:
+        job_row = conn.execute(select(career_jobs).where(career_jobs.c.id == job_id)).fetchone()
+        if not job_row:
+            raise LookupError("Job not found")
+        existing = conn.execute(select(career_applications).where(career_applications.c.job_id == job_id)).fetchone()
+        if existing:
+            return _career_row(existing)
+        facts = [_career_row(row) for row in conn.execute(select(career_facts))]
+        application_id = _insert_application(conn, _career_row(job_row), facts, _career_profile(facts))
+        conn.execute(insert(career_audit).values(timestamp=datetime.now(timezone.utc).isoformat(), action="application_prepared", entity_type="job", entity_id=str(job_id), detail_json=json.dumps({"application_id": application_id})))
+        return _career_row(conn.execute(select(career_applications).where(career_applications.c.id == application_id)).fetchone())
 
 
 def run_career_daily(run_date: str | None = None, minimum_score: int = 65) -> dict:
-    from app.career import CAREER_SEARCH_PROFILE, score_job, verify_claims
-
     run_date = run_date or date.today().isoformat()
     with _engine.connect() as conn:
         existing = conn.execute(select(career_daily_runs).where(career_daily_runs.c.run_date == run_date)).fetchone()
@@ -551,33 +634,13 @@ def run_career_daily(run_date: str | None = None, minimum_score: int = 65) -> di
             return _career_row(existing)
 
         facts = [_career_row(row) for row in conn.execute(select(career_facts))]
-        profile = {
-            **CAREER_SEARCH_PROFILE,
-            "skills": [fact["value"] for fact in facts if fact["category"] == "skill"],
-        }
-        jobs = [_career_row(row) for row in conn.execute(select(career_jobs).where(career_jobs.c.status == "discovered"))]
-        for job in jobs:
-            scored = score_job(job, profile)
-            conn.execute(update(career_jobs).where(career_jobs.c.id == job["id"]).values(
-                match_score=scored["score"], score_breakdown_json=json.dumps(scored["breakdown"]),
-                strengths_json=json.dumps(scored["strengths"]), gaps_json=json.dumps(scored["gaps"]),
-            ))
-            job.update({"match_score": scored["score"], "score_breakdown": scored["breakdown"], "strengths": scored["strengths"], "gaps": scored["gaps"]})
+        profile = _career_profile(facts)
+        jobs = _score_discovered(conn, profile)
         selected = max(jobs, key=lambda item: item["match_score"], default=None)
         if selected and selected["match_score"] < minimum_score:
             selected = None
-
         if selected:
-            claims = [fact["value"] for fact in facts if fact["category"] in {"education", "experience", "skill", "project"} and fact["verification_status"] in {"user_confirmed", "document_verified"}]
-            supported = [fact["value"] for fact in facts if fact["verification_status"] in {"user_confirmed", "document_verified"}]
-            unsupported = verify_claims(claims, supported)
-            conn.execute(insert(career_applications).values(
-                job_id=selected["id"], status="blocked_by_claims" if unsupported else "pending_review",
-                summary=f"Evidence-bound materials for {selected['title']} at {selected['company']}.",
-                cv_claims_json=json.dumps(claims), unsupported_claims_json=json.dumps(unsupported),
-                motivation_letter=(f"Dear hiring team at {selected['company']},\n\nI am interested in the {selected['title']} position because it aligns with my focus on AI engineering, solution engineering, and client-facing technology work. My user-confirmed profile includes experience with {', '.join(profile['skills'][:4])}. I would welcome the opportunity to learn more about the team and discuss where my current experience can contribute.\n\nKind regards"),
-            ))
-            conn.execute(update(career_jobs).where(career_jobs.c.id == selected["id"]).values(status="selected"))
+            _insert_application(conn, selected, facts, profile)
 
         contact = conn.execute(select(career_contacts).where(career_contacts.c.status == "draft").order_by(career_contacts.c.id).limit(1)).fetchone()
         result = {"jobs_scored": len(jobs), "application_prepared": bool(selected), "reason": "Best qualified opportunity selected." if selected else "No job cleared the configured threshold.", "discovery": discovery}
@@ -599,6 +662,9 @@ def get_career_dashboard() -> dict:
         application = None
         if run and run["selected_job_id"]:
             row = conn.execute(select(career_applications).where(career_applications.c.job_id == run["selected_job_id"])).fetchone()
+            application = _career_row(row) if row else None
+        if application is None:
+            row = conn.execute(select(career_applications).where(career_applications.c.status == "pending_review").order_by(desc(career_applications.c.id)).limit(1)).fetchone()
             application = _career_row(row) if row else None
         audits = [_career_row(row) for row in conn.execute(select(career_audit).order_by(desc(career_audit.c.id)).limit(8))]
         return {"run": run, "jobs": jobs, "facts": facts, "contacts": contacts, "application": application, "audits": audits}
